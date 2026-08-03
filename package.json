@@ -1,0 +1,28 @@
+{
+  "name": "quietline",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "description": "Private credit, settled on Flare.",
+  "workspaces": [
+    "packages/*",
+    "contracts",
+    "relayer",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "pnpm --filter @quietline/frontend dev",
+    "dev:relayer": "pnpm --filter @quietline/relayer dev",
+    "fcc:render-config": "node fcc/render-proxy-config.mjs",
+    "test:extension": "cd extension && go test ./...",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:extension"
+  },
+  "engines": {
+    "node": ">=22",
+    "npm": ">=10"
+  }
+}

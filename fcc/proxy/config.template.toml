@@ -1,0 +1,72 @@
+redis_port = "redis:6379"
+private_key_variable = "PROXY_PRIVATE_KEY"
+initial_signing_policy_offset = 0
+signing_policy_fetch_interval = "20s"
+machine_path_list_fetch_interval = "20s"
+db_sync_max_sleep_time = "2m"
+chain_id = 114
+
+[db]
+host = "{{INDEXER_DB_HOST}}"
+port = {{INDEXER_DB_PORT}}
+database = "{{INDEXER_DB_NAME}}"
+username = "{{INDEXER_DB_USER}}"
+password = "{{INDEXER_DB_PASSWORD}}"
+log_queries = false
+
+[logging]
+level = "INFO"
+file = ""
+max_file_size = 0
+console = true
+
+[addresses]
+flare_systems_manager = "0xA90Db6D10F856799b10ef2A77EBCbF460aC71e52"
+relay = "0xa10B672D1c62e5457b17af63d4302add6A99d7dE"
+voter_registry = "0x6a0AF07b7972177B176d3D422555cbc98DfDe914"
+machine_path_manager = "0x2Fc4E122BC234f56a0D05aa24d8CE7c28cD25141"
+
+[governance]
+signers = [{{GOVERNANCE_SIGNERS_TOML}}]
+threshold = {{GOVERNANCE_THRESHOLD}}
+
+[ports]
+internal = "6663"
+external = "6664"
+
+[info_timing]
+initial_timeout = "5m"
+cycle_internal = "10s"
+cycle_queue_response_wait = "30s"
+
+[voting]
+proposal_expiration = "120s"
+max_pending_request = 100
+history_size = 3
+finalized_buffer_size = 10
+max_provider_vote = 0.025
+
+[storage]
+action_ttl = "336h"
+result_ttl = "336h"
+submit_result_ttl = "30m"
+backup_ttl = "192h"
+
+[direct]
+enable = true
+api_key = ""
+api_key_variable = "DIRECT_API_KEY"
+api_key_optional = false
+max_body_size = 1048576
+
+[attestation]
+enable = true
+expected_code_hashes = ["{{FCC_CODE_HASH}}"]
+expected_platforms = ["GCP_AMD_SEV"]
+expected_debug_statuses = ["disabled-since-boot"]
+max_token_age = "5m"
+require_sec_boot = true
+allow_magic_pass = false
+
+[metrics]
+enable = true

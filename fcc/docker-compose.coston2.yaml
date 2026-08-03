@@ -1,0 +1,64 @@
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no
+    restart: unless-stopped
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  tee-proxy:
+    build:
+      context: ./proxy
+      args:
+        TEE_PROXY_VERSION: v0.0.21
+    restart: unless-stopped
+    environment:
+      PROXY_PRIVATE_KEY: ${PROXY_PRIVATE_KEY:?PROXY_PRIVATE_KEY is required}
+      DIRECT_API_KEY: ${DIRECT_API_KEY:?DIRECT_API_KEY is required}
+    volumes:
+      - ./generated/proxy.coston2.toml:/app/config/config.toml:ro
+    ports:
+      - "127.0.0.1:6663:6663"
+      - "0.0.0.0:6664:6664"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  extension-tee:
+    build:
+      context: ../extension
+      dockerfile: Dockerfile
+      args:
+        SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:?SOURCE_DATE_EPOCH is required}
+    restart: unless-stopped
+    environment:
+      MODE: "0"
+      SIMULATED_TEE: "false"
+      CHAIN_ID: "114"
+      CHAIN_URL: ${CHAIN_URL:?CHAIN_URL is required}
+      PROXY_URL: http://tee-proxy:6663
+      INITIAL_OWNER: ${INITIAL_OWNER:?INITIAL_OWNER is required}
+      GOVERNANCE_SIGNERS: ${GOVERNANCE_SIGNERS:?GOVERNANCE_SIGNERS is required}
+      GOVERNANCE_THRESHOLD: ${GOVERNANCE_THRESHOLD:?GOVERNANCE_THRESHOLD is required}
+      EXTENSION_ID: ${EXTENSION_ID:?EXTENSION_ID is required}
+      CONFIG_PORT: "5501"
+      SIGN_PORT: "7701"
+      EXTENSION_PORT: "7702"
+      LOG_LEVEL: INFO
+      STATE_PATH: /data/quietline.bolt
+      STATE_ENCRYPTION_KEY: ${STATE_ENCRYPTION_KEY:?STATE_ENCRYPTION_KEY is required}
+      QUIET_VAULT: ${QUIET_VAULT:?QUIET_VAULT is required}
+      FXRP_ADDRESS: "0x0b6A3645c240605887a5532109323A3E12273dc7"
+      USDT0_ADDRESS: "0x21709E63fC7F264F329e0826Ea82197694B82775"
+    volumes:
+      - quietline-private-state:/data
+    depends_on:
+      - tee-proxy
+
+volumes:
+  quietline-private-state:

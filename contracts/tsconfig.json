@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node", "mocha"],
+    "strict": false,
+    "strictNullChecks": true,
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["hardhat.config.ts", "scripts"]
+}
