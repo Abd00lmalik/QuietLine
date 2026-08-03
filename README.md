@@ -49,6 +49,31 @@ requires funded wallets, FCC registration access, a Coston2 indexer database,
 and GCP Confidential Space. The process stops rather than falling back to
 simulated attestation or placeholder addresses.
 
+### Vercel Frontend
+
+The repository includes a root `vercel.json` for the pnpm monorepo. Import the
+repository into Vercel with the **Root Directory set to the repository root**,
+not `frontend`. The configuration builds only `@quietline/frontend`, publishes
+`frontend/dist`, and sends browser routes such as `/app/borrow` to the Vite
+entry point.
+
+Set these Vercel environment variables for Production, Preview, and
+Development:
+
+```text
+VITE_RELAYER_URL=https://YOUR-PUBLIC-RELAYER
+VITE_FCC_INSTRUCTION_FEE_WEI=1000000
+```
+
+`VITE_RELAYER_URL` must be the public HTTPS origin of the separately hosted
+Quietline relayer. Do not add a trailing slash. The relayer must set
+`FRONTEND_ORIGIN` to the production Vercel origin so browser requests pass its
+CORS policy.
+
+Vercel hosts the static React frontend only. The persistent Fastify relayer,
+SQLite job store, chain indexer, risk keeper, FCC proxy, and Confidential Space
+workload must run on long-lived infrastructure.
+
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)

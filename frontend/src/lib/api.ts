@@ -1,6 +1,9 @@
 import type { Address, Hex } from "viem";
 
-const baseUrl = import.meta.env.VITE_RELAYER_URL ?? "/api";
+const configuredBaseUrl = import.meta.env.VITE_RELAYER_URL?.trim();
+const baseUrl = configuredBaseUrl
+  ? configuredBaseUrl.replace(/\/+$/u, "")
+  : "/api";
 
 export type RelayerJob = {
   id: string;
