@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build": "pnpm -r build",
+    "build:frontend": "pnpm --filter @quietline/protocol build && pnpm --filter @quietline/frontend build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
@@ -22,7 +23,7 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:extension"
   },
   "engines": {
-    "node": ">=22",
+    "node": "22.x",
     "npm": ">=10"
   }
 }

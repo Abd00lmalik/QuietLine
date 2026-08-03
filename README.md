@@ -54,8 +54,8 @@ simulated attestation or placeholder addresses.
 The repository includes a root `vercel.json` for the pnpm monorepo. Import the
 repository into Vercel with the **Root Directory set to the repository root**,
 not `frontend`. The configuration builds only `@quietline/frontend`, publishes
-`frontend/dist`, and sends browser routes such as `/app/borrow` to the Vite
-entry point.
+its shared `@quietline/protocol` dependency first, publishes `frontend/dist`,
+and sends browser routes such as `/app/borrow` to the Vite entry point.
 
 Set these Vercel environment variables for Production, Preview, and
 Development:
