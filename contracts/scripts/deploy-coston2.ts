@@ -8,6 +8,11 @@ import {
 
 async function main() {
   const [deployer] = await ethers.getSigners();
+  if (!deployer) {
+    throw new Error(
+      "DEPLOYER_PRIVATE_KEY is required and must belong to a funded Coston2 wallet",
+    );
+  }
   const network = await ethers.provider.getNetwork();
   if (network.chainId !== 114n) {
     throw new Error(`expected Coston2 chain 114, got ${network.chainId}`);
