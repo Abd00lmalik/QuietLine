@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { waitForChainJob, waitForJob } from "./api";
+import { getHealth, waitForChainJob, waitForJob } from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -99,5 +99,37 @@ describe("relayer job polling", () => {
       id: "job-chain",
       externalKey: `chain:${requestId}`,
     });
+  });
+});
+
+describe("relayer response validation", () => {
+  it("classifies a same-origin SPA response as missing relayer infrastructure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<!doctype html><title>Quietline</title>", {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      ),
+    );
+
+    await expect(getHealth()).rejects.toThrow(
+      "Quietline received an invalid response from the configured relayer.",
+    );
+  });
+
+  it("preserves a JSON API error message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: "FCC is not reachable" }), {
+          status: 503,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(getHealth()).rejects.toThrow("FCC is not reachable");
   });
 });

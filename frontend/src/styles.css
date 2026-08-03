@@ -1134,6 +1134,13 @@ summary:focus-visible {
   justify-content: center;
 }
 
+.connect-actions__notice {
+  max-width: 360px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .market-snapshot {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

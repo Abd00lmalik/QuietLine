@@ -5,6 +5,16 @@ const baseUrl = configuredBaseUrl
   ? configuredBaseUrl.replace(/\/+$/u, "")
   : "/api";
 
+export const relayerClientConfigured =
+  Boolean(configuredBaseUrl) || import.meta.env.DEV;
+
+export class RelayerConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RelayerConfigurationError";
+  }
+}
+
 export type RelayerJob = {
   id: string;
   externalKey?: string;
@@ -158,6 +168,11 @@ async function request<T>(
   path: string,
   init: RequestInit & { token?: string } = {},
 ): Promise<T> {
+  if (!relayerClientConfigured) {
+    throw new RelayerConfigurationError(
+      "The live Quietline relayer is not configured for this deployment.",
+    );
+  }
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
@@ -166,6 +181,14 @@ async function request<T>(
       ...init.headers,
     },
   });
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new RelayerConfigurationError(
+      response.status === 404 || response.status === 405
+        ? "This deployment does not have a live Quietline relayer API."
+        : "Quietline received an invalid response from the configured relayer.",
+    );
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { message?: string };
     throw new Error(body.message ?? `Quietline API returned ${response.status}`);

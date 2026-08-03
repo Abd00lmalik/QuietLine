@@ -3,7 +3,12 @@ import { useAccount, useConnect, useSignTypedData, useSwitchChain } from "wagmi"
 import { WalletCards } from "lucide-react";
 import type { Address, Hex } from "viem";
 import { COSTON2 } from "@quietline/protocol";
-import { getChallenge, verifyChallenge } from "../lib/api";
+import {
+  getChallenge,
+  relayerClientConfigured,
+  RelayerConfigurationError,
+  verifyChallenge,
+} from "../lib/api";
 import { usePrivateActions } from "../hooks/usePrivateActions";
 import { useQuietline } from "../store/useQuietline";
 import { Button, useToast } from "./ui";
@@ -15,10 +20,24 @@ export function ConnectQuietline({ compact = false }: { compact?: boolean }) {
   const { signTypedDataAsync } = useSignTypedData();
   const { switchChainAsync } = useSwitchChain();
   const connectLive = useQuietline((state) => state.connectLive);
+  const serviceHealth = useQuietline((state) => state.serviceHealth);
   const { openOrRefresh } = usePrivateActions();
   const { push } = useToast();
+  const relayerUnavailable =
+    !relayerClientConfigured ||
+    serviceHealth?.services.api === "unavailable";
 
   const connect = async () => {
+    if (relayerUnavailable) {
+      push({
+        tone: "warning",
+        title: "Live service unavailable",
+        body: !relayerClientConfigured
+          ? "This deployment is missing its public relayer URL."
+          : "The Quietline relayer is offline. Wallet access was not requested.",
+      });
+      return;
+    }
     const connector = connectors[0];
     const provider = !account.isConnected && connector
       ? await connector.getProvider().catch(() => undefined)
@@ -78,9 +97,19 @@ export function ConnectQuietline({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className={compact ? "connect-actions connect-actions--compact" : "connect-actions"}>
-      <Button icon={WalletCards} loading={loading} onClick={() => void connect()}>
-        Connect Coston2 wallet
+      <Button
+        icon={WalletCards}
+        loading={loading}
+        disabled={relayerUnavailable}
+        onClick={() => void connect()}
+      >
+        {relayerUnavailable ? "Live service unavailable" : "Connect Coston2 wallet"}
       </Button>
+      {relayerUnavailable && !compact ? (
+        <small className="connect-actions__notice">
+          Wallet connection opens when the relayer and FCC path are online.
+        </small>
+      ) : null}
     </div>
   );
 }
@@ -94,6 +123,9 @@ function connectionErrorMessage(error: unknown) {
   }
   if (/provider not found/iu.test(error.message)) {
     return "Install or unlock MetaMask or Rabby, then refresh this page.";
+  }
+  if (error instanceof RelayerConfigurationError) {
+    return error.message;
   }
   return error.message.replace(/\s+Version:.*$/isu, "").trim();
 }
