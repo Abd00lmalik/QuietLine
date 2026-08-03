@@ -18,12 +18,25 @@
     "typecheck": "pnpm -r typecheck",
     "dev": "pnpm --filter @quietline/frontend dev",
     "dev:relayer": "pnpm --filter @quietline/relayer dev",
-    "fcc:render-config": "node fcc/render-proxy-config.mjs",
+    "coston2:prepare": "node scripts/coston2/prepare.mjs",
+    "coston2:preflight": "node scripts/coston2/preflight.mjs",
+    "coston2:configure-hosting": "node scripts/coston2/configure-hosting.mjs",
+    "coston2:register-extension": "node scripts/coston2/register-extension.mjs",
+    "coston2:register-machine": "node scripts/coston2/register-machine.mjs",
+    "fcc:sync-tooling": "node scripts/coston2/sync-fcc-tooling.mjs",
+    "fcc:render-config": "node --env-file=fcc/.env.coston2 fcc/render-proxy-config.mjs",
+    "fcc:validate-compose": "docker compose --env-file fcc/.env.coston2 -f fcc/docker-compose.coston2.yaml config --quiet",
+    "image:all": "node scripts/coston2/build-images.mjs",
+    "image:extension": "node scripts/coston2/build-images.mjs extension",
+    "image:relayer": "node scripts/coston2/build-images.mjs relayer",
     "test:extension": "cd extension && go test ./...",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:extension"
   },
   "engines": {
     "node": "22.x",
     "npm": ">=10"
+  },
+  "devDependencies": {
+    "ethers": "6.15.0"
   }
 }

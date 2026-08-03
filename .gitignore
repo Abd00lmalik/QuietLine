@@ -8,6 +8,9 @@ cache/
 typechain-types/
 .env
 .env.local
+fcc/.env.coston2
+frontend/.env.production
+relayer/.env
 *.log
 *.db
 *.db-shm

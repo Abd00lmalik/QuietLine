@@ -1,6 +1,16 @@
 import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-chai-matchers";
+import { config as loadEnv } from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
+import { resolve } from "node:path";
+
+loadEnv({ path: resolve(__dirname, "..", ".env"), quiet: true });
+
+const deployerPrivateKey = process.env.DEPLOYER_PRIVATE_KEY;
+const coston2Accounts =
+  deployerPrivateKey && /^0x[0-9a-fA-F]{64}$/u.test(deployerPrivateKey)
+    ? [deployerPrivateKey]
+    : [];
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -15,7 +25,7 @@ const config: HardhatUserConfig = {
     coston2: {
       url: process.env.COSTON2_RPC_URL ?? "https://coston2-api.flare.network/ext/C/rpc",
       chainId: 114,
-      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      accounts: coston2Accounts,
     },
   },
 };

@@ -1,0 +1,6 @@
+{
+  "repository": "https://github.com/flare-foundation/fce-extension-scaffold.git",
+  "commit": "f48cafb889441a62e47c083f4be8dd7d3f456f83",
+  "verifiedAt": "2026-08-03",
+  "purpose": "Official Flare FCC extension registration and TEE machine tooling"
+}

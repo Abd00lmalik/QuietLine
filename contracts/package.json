@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "deploy:local": "hardhat run scripts/deploy-local.ts --network localhost",
     "deploy:coston2": "hardhat run scripts/deploy-coston2.ts --network coston2",
+    "set-extension:coston2": "hardhat run scripts/set-extension-id.ts --network coston2",
     "configure:coston2": "hardhat run scripts/configure-extension.ts --network coston2",
     "verify:coston2": "hardhat run scripts/verify-deployment.ts --network coston2",
     "fund-backstop:coston2": "hardhat run scripts/fund-backstop-coston2.ts --network coston2",
@@ -26,6 +27,7 @@
     "ethers": "^6.15.0",
     "hardhat": "^2.26.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "dotenv": "^17.2.1"
   }
 }
