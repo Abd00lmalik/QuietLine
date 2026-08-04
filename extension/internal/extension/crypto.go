@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
 
@@ -34,15 +35,10 @@ func (e *Extension) verifySignedAction(req quiettypes.SignedAction, expectedActi
 	if len(req.ResponsePublicKey) != 65 || req.ResponsePublicKey[0] != 4 {
 		return errors.New("response public key must be uncompressed secp256k1")
 	}
-	uint256Ty, _ := abi.NewType("uint256", "", nil)
-	bytes32Ty, _ := abi.NewType("bytes32", "", nil)
-	addressTy, _ := abi.NewType("address", "", nil)
-	uint64Ty, _ := abi.NewType("uint64", "", nil)
-	domainArgs := abi.Arguments{{Type: bytes32Ty}, {Type: bytes32Ty}, {Type: bytes32Ty}, {Type: uint256Ty}, {Type: addressTy}}
-	domain, _ := domainArgs.Pack(domainTypeHash, nameHash, versionHash, e.cfg.ChainID, e.cfg.Vault)
-	actionArgs := abi.Arguments{{Type: bytes32Ty}, {Type: addressTy}, {Type: uint64Ty}, {Type: uint64Ty}, {Type: bytes32Ty}, {Type: bytes32Ty}, {Type: bytes32Ty}}
-	body, _ := actionArgs.Pack(actionTypeHash, req.Sender, req.Nonce, req.Deadline, crypto.Keccak256Hash([]byte(req.Action)), crypto.Keccak256Hash(req.Payload), crypto.Keccak256Hash(req.ResponsePublicKey))
-	digest := crypto.Keccak256Hash([]byte{0x19, 0x01}, crypto.Keccak256(domain), crypto.Keccak256(body))
+	digest, err := signedActionDigest(req, e.cfg.ChainID, e.cfg.Vault)
+	if err != nil {
+		return fmt.Errorf("building signed action digest: %w", err)
+	}
 	if len(req.Signature) != 65 {
 		return errors.New("signature must be 65 bytes")
 	}
@@ -66,6 +62,44 @@ func (e *Extension) verifySignedAction(req quiettypes.SignedAction, expectedActi
 		return fmt.Errorf("account nonce mismatch: expected %d", account.Nonce)
 	}
 	return nil
+}
+
+func signedActionDigest(req quiettypes.SignedAction, chainID uint64, vault common.Address) (common.Hash, error) {
+	uint256Ty, err := abi.NewType("uint256", "", nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	bytes32Ty, err := abi.NewType("bytes32", "", nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	addressTy, err := abi.NewType("address", "", nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	uint64Ty, err := abi.NewType("uint64", "", nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	domainArgs := abi.Arguments{{Type: bytes32Ty}, {Type: bytes32Ty}, {Type: bytes32Ty}, {Type: uint256Ty}, {Type: addressTy}}
+	domain, err := domainArgs.Pack(domainTypeHash, nameHash, versionHash, new(big.Int).SetUint64(chainID), vault)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	actionArgs := abi.Arguments{{Type: bytes32Ty}, {Type: addressTy}, {Type: uint64Ty}, {Type: uint64Ty}, {Type: bytes32Ty}, {Type: bytes32Ty}, {Type: bytes32Ty}}
+	body, err := actionArgs.Pack(
+		actionTypeHash,
+		req.Sender,
+		req.Nonce,
+		req.Deadline,
+		crypto.Keccak256Hash([]byte(req.Action)),
+		crypto.Keccak256Hash(req.Payload),
+		crypto.Keccak256Hash(req.ResponsePublicKey),
+	)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return crypto.Keccak256Hash([]byte{0x19, 0x01}, crypto.Keccak256(domain), crypto.Keccak256(body)), nil
 }
 
 func requiresCurrentNonce(action string) bool {
