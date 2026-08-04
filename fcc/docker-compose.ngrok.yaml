@@ -1,0 +1,12 @@
+services:
+  ngrok-fcc:
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    environment:
+      NGROK_AUTHTOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required in the root .env}
+    command:
+      - http
+      - --url=${NGROK_DOMAIN:?NGROK_DOMAIN is required}
+      - http://host.docker.internal:6664
+    depends_on:
+      - tee-proxy

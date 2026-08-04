@@ -132,6 +132,15 @@ corepack pnpm coston2:preflight
 
 8. Expose proxy port `6664` through a stable named tunnel. Do not use a
    `trycloudflare.com` quick tunnel because its hostname changes after restart.
+   For an account-bound ngrok domain, put `AUTH_TOKEN` in the ignored root
+   `.env`, put the assigned hostname in `NGROK_DOMAIN` inside the ignored
+   `fcc/.env.coston2`, and launch the durable tunnel service:
+
+   ```powershell
+   corepack pnpm fcc:tunnel:up
+   corepack pnpm fcc:tunnel:logs
+   ```
+
    Once the public FCC proxy and relayer URLs exist, synchronize all private
    configuration files:
 
