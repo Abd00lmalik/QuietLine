@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { computeAddress } from "ethers";
 import { isPlaceholder, parseEnv, root, secret, writeEnv } from "./lib.mjs";
 
 const rpc = "https://coston2-api.flare.network/ext/C/rpc";
@@ -20,6 +21,10 @@ const existingRoot = parseEnv(rootPath);
 const existingRelayer = parseEnv(relayerPath);
 const existingFrontend = parseEnv(frontendPath);
 const existingFcc = parseEnv(fccPath);
+const privateKeyPattern = /^0x[0-9a-fA-F]{64}$/u;
+const relayerAddress = privateKeyPattern.test(existingRelayer.RELAYER_PRIVATE_KEY ?? "")
+  ? computeAddress(existingRelayer.RELAYER_PRIVATE_KEY)
+  : "";
 
 const operationsKey =
   existingRoot.OPERATIONS_API_KEY ??
@@ -35,9 +40,10 @@ writeEnv(rootPath, {
   DEPLOYER_PRIVATE_KEY:
     existingRoot.DEPLOYER_PRIVATE_KEY ?? "REPLACE_WITH_0X_64_HEX_PRIVATE_KEY",
   OPERATOR_ADDRESS:
-    /^0x[0-9a-fA-F]{40}$/u.test(existingRoot.OPERATOR_ADDRESS ?? "")
+    relayerAddress ||
+    (/^0x[0-9a-fA-F]{40}$/u.test(existingRoot.OPERATOR_ADDRESS ?? "")
       ? existingRoot.OPERATOR_ADDRESS
-      : "",
+      : ""),
   FCC_PROXY_URL:
     existingRoot.FCC_PROXY_URL ?? "REPLACE_WITH_STABLE_PUBLIC_FCC_PROXY_URL",
   RELAYER_URL:

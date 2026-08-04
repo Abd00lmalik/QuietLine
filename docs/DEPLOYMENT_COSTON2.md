@@ -171,13 +171,19 @@ corepack pnpm coston2:preflight
     derives the EVM signer address from the attested secp256k1 key, binds it
     once, and writes the measured code hash into the manifest.
 
-11. Verify bytecode and configuration:
+11. Grant the relayer wallet the on-chain operator role:
+
+    ```powershell
+    corepack pnpm --filter @quietline/contracts configure-operator:coston2
+    ```
+
+12. Verify bytecode and configuration:
 
     ```powershell
     corepack pnpm --filter @quietline/contracts verify:coston2
     ```
 
-12. Configure and start the relayer using `relayer/.env`.
+13. Configure and start the relayer using `relayer/.env`.
 13. Fund the private liquidation backstop.
 14. Configure and deploy the frontend using `frontend/.env.production`.
 15. Execute the live testnet runbook.

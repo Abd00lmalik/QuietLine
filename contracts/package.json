@@ -10,6 +10,7 @@
     "deploy:coston2": "hardhat run scripts/deploy-coston2.ts --network coston2",
     "set-extension:coston2": "hardhat run scripts/set-extension-id.ts --network coston2",
     "configure:coston2": "hardhat run scripts/configure-extension.ts --network coston2",
+    "configure-operator:coston2": "hardhat run scripts/configure-operator.ts --network coston2",
     "verify:coston2": "hardhat run scripts/verify-deployment.ts --network coston2",
     "fund-backstop:coston2": "hardhat run scripts/fund-backstop-coston2.ts --network coston2",
     "seed:local": "hardhat run scripts/seed-local.ts --network localhost"

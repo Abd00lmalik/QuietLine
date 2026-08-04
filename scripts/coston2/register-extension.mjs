@@ -74,10 +74,5 @@ writeEnv(relayerEnvPath, {
   QUIET_VAULT: vault,
   START_BLOCK: String(deployment.startBlock),
 }, "Quietline Coston2 relayer");
-writeEnv(resolve(root, ".env"), {
-  ...rootEnv,
-  OPERATOR_ADDRESS: owner,
-}, "Quietline Coston2 contract deployment");
-
 run("corepack", ["pnpm", "--filter", "@quietline/contracts", "set-extension:coston2"]);
 console.log(`Registered and bound FCC extension ${deployment.extensionId}`);
