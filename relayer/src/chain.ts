@@ -145,7 +145,7 @@ export class ChainClient {
         functionName: "currentXrpUsdPrice",
       }),
       this.publicClient.readContract({
-        address: "0x21709E63fC7F264F329e0826Ea82197694B82775",
+        address: "0xC1A5B41512496B80903D1f32d6dEa3a73212E71F",
         abi: erc20Abi,
         functionName: "balanceOf",
         args: [this.cfg.QUIET_VAULT as Address],
