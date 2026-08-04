@@ -19,3 +19,5 @@ relayer/.env
 extension/data/
 deployments/local.json
 fcc/generated/
+
+.vercel

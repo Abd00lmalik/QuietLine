@@ -5,6 +5,14 @@ const baseUrl = configuredBaseUrl
   ? configuredBaseUrl.replace(/\/+$/u, "")
   : "/api";
 
+export function getGatewayHeaders(url: string): Record<string, string> {
+  return url.endsWith(".ngrok-free.dev/api")
+    ? { "ngrok-skip-browser-warning": "quietline" }
+    : {};
+}
+
+const gatewayHeaders = getGatewayHeaders(baseUrl);
+
 export const relayerClientConfigured =
   Boolean(configuredBaseUrl) || import.meta.env.DEV;
 
@@ -177,6 +185,7 @@ async function request<T>(
     ...init,
     headers: {
       "content-type": "application/json",
+      ...gatewayHeaders,
       ...(init.token ? { authorization: `Bearer ${init.token}` } : {}),
       ...init.headers,
     },

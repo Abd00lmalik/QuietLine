@@ -85,3 +85,38 @@ describe("operations job lookup", () => {
     await app.close();
   });
 });
+
+describe("public configuration", () => {
+  let store: Store;
+
+  beforeEach(() => {
+    process.env.LOG_LEVEL = "silent";
+    store = new Store(":memory:");
+  });
+
+  afterEach(() => {
+    store.close();
+    delete process.env.LOG_LEVEL;
+  });
+
+  it("returns JSON-safe frontend configuration", async () => {
+    const app = buildServer({
+      config,
+      store,
+      auth: {} as never,
+      fcc: {} as never,
+      orchestrator: {} as never,
+      chain: {} as never,
+    });
+
+    const response = await app.inject({ method: "GET", url: "/config" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      network: { id: 114, name: "Coston2" },
+      vault,
+      policy: { termsDays: [7, 14, 30], quoteValiditySeconds: 300 },
+    });
+    await app.close();
+  });
+});

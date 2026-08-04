@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getHealth, waitForChainJob, waitForJob } from "./api";
+import {
+  getGatewayHeaders,
+  getHealth,
+  waitForChainJob,
+  waitForJob,
+} from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -103,6 +108,13 @@ describe("relayer job polling", () => {
 });
 
 describe("relayer response validation", () => {
+  it("bypasses the ngrok browser warning for the public relayer gateway", () => {
+    expect(
+      getGatewayHeaders("https://speculate-ipod-harmful.ngrok-free.dev/api"),
+    ).toEqual({ "ngrok-skip-browser-warning": "quietline" });
+    expect(getGatewayHeaders("https://relayer.quietline.app/api")).toEqual({});
+  });
+
   it("classifies a same-origin SPA response as missing relayer infrastructure", async () => {
     vi.stubGlobal(
       "fetch",

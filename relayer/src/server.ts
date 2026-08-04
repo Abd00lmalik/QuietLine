@@ -110,7 +110,10 @@ export function buildServer(deps: Dependencies): FastifyInstance {
     network: COSTON2,
     vault: deps.config.QUIET_VAULT,
     assets: ASSETS,
-    policy: POLICY,
+    policy: {
+      termsDays: POLICY.termsDays,
+      quoteValiditySeconds: POLICY.quoteValiditySeconds,
+    },
     privacy: {
       private:
         "Balances, credit requests, lender mandates, loan terms, debt, health, and risk calculations.",
