@@ -91,12 +91,14 @@ describe("public configuration", () => {
 
   beforeEach(() => {
     process.env.LOG_LEVEL = "silent";
+    process.env.FRONTEND_ORIGIN = "https://quietline.vercel.app";
     store = new Store(":memory:");
   });
 
   afterEach(() => {
     store.close();
     delete process.env.LOG_LEVEL;
+    delete process.env.FRONTEND_ORIGIN;
   });
 
   it("returns JSON-safe frontend configuration", async () => {
@@ -117,6 +119,36 @@ describe("public configuration", () => {
       vault,
       policy: { termsDays: [7, 14, 30], quoteValiditySeconds: 300 },
     });
+    await app.close();
+  });
+
+  it("allows the ngrok warning bypass header during browser preflight", async () => {
+    const app = buildServer({
+      config,
+      store,
+      auth: {} as never,
+      fcc: {} as never,
+      orchestrator: {} as never,
+      chain: {} as never,
+    });
+
+    const response = await app.inject({
+      method: "OPTIONS",
+      url: "/health",
+      headers: {
+        origin: "https://quietline.vercel.app",
+        "access-control-request-headers":
+          "content-type, ngrok-skip-browser-warning",
+      },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "https://quietline.vercel.app",
+    );
+    expect(response.headers["access-control-allow-headers"]).toContain(
+      "ngrok-skip-browser-warning",
+    );
     await app.close();
   });
 });

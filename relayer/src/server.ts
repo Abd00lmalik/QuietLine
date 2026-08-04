@@ -72,7 +72,10 @@ export function buildServer(deps: Dependencies): FastifyInstance {
     if (origin && isAllowedOrigin(origin)) {
       reply.header("access-control-allow-origin", origin);
       reply.header("vary", "Origin");
-      reply.header("access-control-allow-headers", "authorization, content-type");
+      reply.header(
+        "access-control-allow-headers",
+        "authorization, content-type, ngrok-skip-browser-warning",
+      );
       reply.header("access-control-allow-methods", "GET, POST, OPTIONS");
     }
     if (request.method === "OPTIONS") return reply.status(204).send();
