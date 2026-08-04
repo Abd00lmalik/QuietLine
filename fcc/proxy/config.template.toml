@@ -62,11 +62,11 @@ max_body_size = 1048576
 [attestation]
 enable = true
 expected_code_hashes = ["{{FCC_CODE_HASH}}"]
-expected_platforms = ["GCP_AMD_SEV"]
-expected_debug_statuses = ["disabled-since-boot"]
+expected_platforms = []
+expected_debug_statuses = []
 max_token_age = "5m"
-require_sec_boot = true
-allow_magic_pass = false
+require_sec_boot = false
+allow_magic_pass = true
 
 [metrics]
 enable = true

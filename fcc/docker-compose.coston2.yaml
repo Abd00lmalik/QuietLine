@@ -15,7 +15,7 @@ services:
     build:
       context: ./proxy
       args:
-        TEE_PROXY_VERSION: v0.0.21
+        TEE_PROXY_REF: 0c6d016b09948cba9a508ba357e592eb6088fd1c
     restart: unless-stopped
     environment:
       PROXY_PRIVATE_KEY: ${PROXY_PRIVATE_KEY:?PROXY_PRIVATE_KEY is required}
@@ -37,8 +37,8 @@ services:
         SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:?SOURCE_DATE_EPOCH is required}
     restart: unless-stopped
     environment:
-      MODE: "0"
-      SIMULATED_TEE: "false"
+      MODE: "1"
+      SIMULATED_TEE: "true"
       CHAIN_ID: "114"
       CHAIN_URL: ${CHAIN_URL:?CHAIN_URL is required}
       PROXY_URL: http://tee-proxy:6663

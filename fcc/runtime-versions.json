@@ -1,0 +1,11 @@
+{
+  "teeNode": {
+    "version": "v0.0.24",
+    "commit": "adc67a29eb7162f6f1b5dabcbca320009480695e"
+  },
+  "teeProxy": {
+    "branch": "develop",
+    "commit": "0c6d016b09948cba9a508ba357e592eb6088fd1c"
+  },
+  "verifiedAt": "2026-08-04"
+}

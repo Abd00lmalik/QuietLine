@@ -44,13 +44,15 @@ type Config struct {
 
 func ValidateProductionEnvironment(cfg Config) error {
 	if cfg.ChainID != 114 {
-		return errors.New("production FCC workload must use Coston2 chain ID 114")
+		return errors.New("FCC workload must use Coston2 chain ID 114")
 	}
-	if os.Getenv("MODE") != "0" {
-		return errors.New("production FCC workload requires MODE=0")
+	mode := os.Getenv("MODE")
+	simulated := strings.EqualFold(os.Getenv("SIMULATED_TEE"), "true")
+	if (mode == "1") != simulated {
+		return errors.New("MODE=1 requires SIMULATED_TEE=true and MODE=0 requires SIMULATED_TEE=false")
 	}
-	if !strings.EqualFold(os.Getenv("SIMULATED_TEE"), "false") {
-		return errors.New("production FCC workload requires SIMULATED_TEE=false")
+	if mode != "0" && mode != "1" {
+		return errors.New("MODE must be 0 for real attestation or 1 for simulated judging")
 	}
 	if os.Getenv("PROXY_URL") == "" {
 		return errors.New("PROXY_URL is required")

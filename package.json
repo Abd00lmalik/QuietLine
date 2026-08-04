@@ -20,6 +20,8 @@
     "dev:relayer": "pnpm --filter @quietline/relayer dev",
     "coston2:prepare": "node scripts/coston2/prepare.mjs",
     "coston2:preflight": "node scripts/coston2/preflight.mjs",
+    "coston2:configure-indexer": "node scripts/coston2/configure-indexer.mjs",
+    "coston2:rotate-relayer-key": "node scripts/coston2/rotate-relayer-key.mjs",
     "coston2:configure-hosting": "node scripts/coston2/configure-hosting.mjs",
     "coston2:register-extension": "node scripts/coston2/register-extension.mjs",
     "coston2:register-machine": "node scripts/coston2/register-machine.mjs",

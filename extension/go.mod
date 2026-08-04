@@ -6,8 +6,8 @@ require go.etcd.io/bbolt v1.4.3
 
 require (
 	github.com/ethereum/go-ethereum v1.17.4
-	github.com/flare-foundation/go-flare-common v1.2.2-0.20260623111601-c573c79c0924
-	github.com/flare-foundation/tee-node v0.0.21-0.20260619120252-31fc839ae6d2
+	github.com/flare-foundation/go-flare-common v1.2.2-0.20260727094511-09a10067e6a4
+	github.com/flare-foundation/tee-node v0.0.24
 )
 
 require (

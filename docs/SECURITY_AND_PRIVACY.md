@@ -35,9 +35,9 @@ operator with access to workload secrets.
 
 ## Trust Model
 
-The hackathon release trusts:
+The Summer Signal judging deployment trusts:
 
-- one real GCP Confidential Space workload;
+- one explicitly simulated FCC workload using the official Coston2 judging path;
 - one tee-proxy deployment and its Coston2 indexer database connection;
 - one relayer process and hot settlement/keeper wallet;
 - one deployment administrator during initial extension and signer binding;
@@ -75,7 +75,10 @@ substitution but makes TEE loss a redeployment event.
 
 ## Operational Security Requirements
 
-- Never deploy with `MODE=1`, `SIMULATED_TEE=true`, or `allow_magic_pass=true`.
+- The hackathon deployment must use `MODE=1`, `SIMULATED_TEE=true`, and
+  `allow_magic_pass=true`. These settings are accepted for Coston2 judging but
+  provide no hardware-backed attestation.
+- Never reuse this simulated configuration for production or real user funds.
 - Keep `STATE_ENCRYPTION_KEY`, proxy key, direct API key, relayer key, session
   secret, and operations key in a secret manager.
 - Use different values for every secret and environment.

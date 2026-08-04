@@ -1,7 +1,8 @@
 # Coston2 Deployment
 
-This process is live-only. Do not substitute local registries, mock tokens,
-simulated attestation, or zero addresses.
+This process uses the live Coston2 chain and the official FCC simulated-TEE
+judging path. It does not claim hardware-backed confidentiality. Do not use
+mock tokens, stale FCC contracts, rotating quick-tunnel URLs, or zero addresses.
 
 ## Fixed Network Inputs
 
@@ -18,10 +19,8 @@ simulated attestation, or zero addresses.
 These cannot be automated without operator access:
 
 - funded Coston2 deployer and relayer wallets;
-- GCP Confidential Space access;
-- a reachable Coston2 indexer database for tee-proxy;
-- FCC extension and TEE-machine registration authority;
-- DNS/TLS and hosting credentials.
+- a stable named Cloudflare tunnel or reserved ngrok domain;
+- faucet CAPTCHA completion.
 
 ## Official Test Assets
 
@@ -61,10 +60,28 @@ Place the relayer key in `relayer/.env`:
 RELAYER_PRIVATE_KEY=0x<64 hexadecimal characters>
 ```
 
+The relayer must not reuse the deployer key. If both private files currently
+contain the same unfunded key, generate a separate relayer wallet:
+
+```powershell
+corepack pnpm coston2:rotate-relayer-key
+```
+
 Never commit either file. The deployer becomes the initial administrator,
 operator, extension owner, and one-of-one governance signer for the hackathon
 deployment. The relayer wallet is a separate least-privilege transaction
 sender and must hold only enough C2FLR for settlement gas.
+
+Configure the private Coston2 indexer credentials:
+
+```powershell
+$env:INDEXER_DB_USER="<issued hackathon username>"
+$env:INDEXER_DB_PASSWORD="<issued hackathon password>"
+corepack pnpm coston2:configure-indexer
+```
+
+The script uses the current Coston2 indexer host `34.38.42.208`, port `3306`,
+and database `indexer`. It never prints the credentials.
 
 Run the machine-readable readiness check at any time:
 
@@ -74,7 +91,7 @@ corepack pnpm coston2:preflight
 
 ## Deployment Order
 
-1. Install dependencies, build production images, and run the full test suite:
+1. Install dependencies, build the judging images, and run the full test suite:
 
    ```powershell
    corepack pnpm install --frozen-lockfile
@@ -99,20 +116,22 @@ corepack pnpm coston2:preflight
    corepack pnpm coston2:register-extension
    ```
 
-6. Build the extension image reproducibly. Use the commit timestamp for
-   `SOURCE_DATE_EPOCH`.
-7. Deploy the image on real GCP Confidential Space with `MODE=0` and
-   `SIMULATED_TEE=false`.
-8. Obtain the measured non-zero code hash and Coston2 indexer database
-   credentials from Flare. Set `FCC_CODE_HASH` and every `INDEXER_DB_*` value
-   in `fcc/.env.coston2`, then render and validate the tee-proxy configuration:
+6. Render and validate the proxy configuration:
 
    ```powershell
    corepack pnpm fcc:render-config
    corepack pnpm fcc:validate-compose
    ```
 
-9. Launch tee-proxy and the workload. Expose proxy port 6664 through HTTPS.
+7. Launch Redis, the current `tee-proxy` develop build, and the
+   `tee-node v0.0.24` extension workload:
+
+   ```powershell
+   docker compose --env-file fcc/.env.coston2 -f fcc/docker-compose.coston2.yaml up -d --build
+   ```
+
+8. Expose proxy port `6664` through a stable named tunnel. Do not use a
+   `trycloudflare.com` quick tunnel because its hostname changes after restart.
    Once the public FCC proxy and relayer URLs exist, synchronize all private
    configuration files:
 
@@ -122,16 +141,16 @@ corepack pnpm coston2:preflight
    corepack pnpm coston2:configure-hosting
    ```
 
-10. Register and activate the real TEE machine with the pinned official Flare
-    tooling:
+9. Register and activate the simulated judging TEE machine with the pinned
+   official Flare tooling:
 
     ```powershell
     corepack pnpm coston2:register-machine
     ```
 
     The script runs `allow-tee-version`, `set-governance`, and `register-tee`
-    with real-attestation mode and then verifies the on-chain configuration.
-11. Configure QuietVault from live attestation:
+    with `-command rRap`, then verifies the on-chain configuration.
+10. Configure QuietVault from the simulated FCC identity:
 
     ```powershell
     corepack pnpm --filter @quietline/contracts configure:coston2
@@ -141,26 +160,25 @@ corepack pnpm coston2:preflight
     derives the EVM signer address from the attested secp256k1 key, binds it
     once, and writes the measured code hash into the manifest.
 
-12. Verify bytecode and configuration:
+11. Verify bytecode and configuration:
 
     ```powershell
     corepack pnpm --filter @quietline/contracts verify:coston2
     ```
 
-13. Configure and start the relayer using `relayer/.env.example`.
-14. Fund the private liquidation backstop.
-15. Configure and deploy the frontend using `frontend/.env.example`.
-16. Execute the live testnet runbook.
+12. Configure and start the relayer using `relayer/.env`.
+13. Fund the private liquidation backstop.
+14. Configure and deploy the frontend using `frontend/.env.production`.
+15. Execute the live testnet runbook.
 
-## Infrastructure Boundary
+## Judging Boundary
 
-The public FCC guide exposes a simulated-TEE path, but this deployment forbids
-it. A real deployment requires GCP Confidential Space, a measured
-`GCP_AMD_SEV` workload with debug disabled, and Coston2 indexer database
-credentials issued through Flare support. These are account-controlled
-resources: they cannot be derived from RPC, faucet, source code, or the public
-FTDC proxy. Do not set `allow_magic_pass`, `MODE=1`, or
-`SIMULATED_TEE=true` to bypass this boundary.
+The Summer Signal Coston2 judging deployment explicitly uses `MODE=1`,
+`SIMULATED_TEE=true`, the simulated code hash, and `magic_pass` attestation.
+The current Coston2 data providers still perform the availability check and
+promote a correctly registered machine to `PRODUCTION`, but that on-chain
+status does not turn simulated attestation into hardware-backed confidentiality.
+Production use requires a separately reviewed Confidential Space deployment.
 
 ## Deployment Gates
 
@@ -168,8 +186,8 @@ Do not open the app to judges unless:
 
 - `deployments/coston2.json` contains non-zero contract, signer, code-hash, and
   public extension values;
-- `/info` reports chain 114, the same extension ID and key, a real platform, and
-  a non-simulated code hash;
+- `/info` reports chain 114, the same extension ID and key, `TEST_PLATFORM`,
+  the official simulated code hash, and `magic_pass`;
 - QuietVault `activeTeeSigner`, `extensionId`, FXRP, and testUSDT0 match the
   manifest;
 - relayer `/health` is `ok`;

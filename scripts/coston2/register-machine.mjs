@@ -17,8 +17,8 @@ const privateKey = requireValue(
 const proxyUrl = requireValue(fccEnv, "EXT_PROXY_URL", /^https:\/\//u);
 const owner = requireValue(fccEnv, "INITIAL_OWNER", /^0x[0-9a-fA-F]{40}$/u);
 requireValue(fccEnv, "EXTENSION_ID", /^\d+$/u);
-if (fccEnv.SIMULATED_TEE !== "false" || fccEnv.MODE !== "0") {
-  throw new Error("real FCC registration requires SIMULATED_TEE=false and MODE=0");
+if (fccEnv.SIMULATED_TEE !== "true" || fccEnv.MODE !== "1") {
+  throw new Error("Coston2 judging registration requires SIMULATED_TEE=true and MODE=1");
 }
 
 const tooling = resolve(root, ".cache", "fce-extension-scaffold", "tools");
@@ -31,7 +31,7 @@ const common = {
     INITIAL_OWNER: owner,
     GOVERNANCE_SIGNERS: fccEnv.GOVERNANCE_SIGNERS,
     GOVERNANCE_THRESHOLD: fccEnv.GOVERNANCE_THRESHOLD,
-    SIMULATED_TEE: "false",
+    SIMULATED_TEE: "true",
   },
 };
 run("go", [
@@ -58,6 +58,6 @@ run("go", [
   "-command", "rRap",
 ], common);
 run("corepack", ["pnpm", "--filter", "@quietline/contracts", "configure:coston2"], {
-  env: { FCC_PROXY_URL: proxyUrl },
+  env: { FCC_PROXY_URL: proxyUrl, SIMULATED_TEE: "true" },
 });
 run("corepack", ["pnpm", "--filter", "@quietline/contracts", "verify:coston2"]);

@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { computeAddress } from "ethers";
 import {
   isPlaceholder,
   parseEnv,
@@ -46,9 +47,43 @@ for (const [name, value] of [
   ["FCC_PROXY_URL", fccEnv.EXT_PROXY_URL],
   ["FCC_CODE_HASH", fccEnv.FCC_CODE_HASH],
   ["INDEXER_DB_HOST", fccEnv.INDEXER_DB_HOST],
+  ["INDEXER_DB_NAME", fccEnv.INDEXER_DB_NAME],
+  ["INDEXER_DB_USER", fccEnv.INDEXER_DB_USER],
+  ["INDEXER_DB_PASSWORD", fccEnv.INDEXER_DB_PASSWORD],
 ]) {
   checks.push({ name, status: isPlaceholder(value) ? "waiting" : "ready" });
 }
+const privateKeyPattern = /^0x[0-9a-fA-F]{64}$/u;
+if (
+  privateKeyPattern.test(rootEnv.DEPLOYER_PRIVATE_KEY ?? "") &&
+  privateKeyPattern.test(relayerEnv.RELAYER_PRIVATE_KEY ?? "")
+) {
+  const deployer = computeAddress(rootEnv.DEPLOYER_PRIVATE_KEY);
+  const relayer = computeAddress(relayerEnv.RELAYER_PRIVATE_KEY);
+  checks.push({
+    name: "Separate wallet roles",
+    status: deployer.toLowerCase() !== relayer.toLowerCase() ? "ready" : "failed",
+  });
+  for (const [name, address] of [
+    ["Deployer C2FLR", deployer],
+    ["Relayer C2FLR", relayer],
+  ]) {
+    checks.push({
+      name,
+      status:
+        BigInt(await rpc("eth_getBalance", [address, "latest"])) > 0n
+          ? "ready"
+          : "waiting",
+    });
+  }
+}
+checks.push({
+  name: "Simulated judging mode",
+  status:
+    fccEnv.MODE === "1" && fccEnv.SIMULATED_TEE === "true"
+      ? "ready"
+      : "failed",
+});
 try {
   run("docker", ["info"], { capture: true });
   checks.push({ name: "Docker engine", status: "ready" });

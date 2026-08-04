@@ -1,10 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
-import { parseEnv, root, secret, writeEnv } from "./lib.mjs";
+import { isPlaceholder, parseEnv, root, secret, writeEnv } from "./lib.mjs";
 
 const rpc = "https://coston2-api.flare.network/ext/C/rpc";
 const frontendOrigin = "https://quietline.vercel.app";
 const normalProxy = "https://tee-proxy-coston2-1.flare.rocks";
+const simulatedCodeHash =
+  "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2";
 const sourceDateEpoch = execFileSync("git", ["log", "-1", "--format=%ct"], {
   cwd: root,
   encoding: "utf8",
@@ -37,7 +39,7 @@ writeEnv(rootPath, {
       ? existingRoot.OPERATOR_ADDRESS
       : "",
   FCC_PROXY_URL:
-    existingRoot.FCC_PROXY_URL ?? "REPLACE_WITH_REAL_PUBLIC_FCC_PROXY_URL",
+    existingRoot.FCC_PROXY_URL ?? "REPLACE_WITH_STABLE_PUBLIC_FCC_PROXY_URL",
   RELAYER_URL:
     existingRoot.RELAYER_URL ?? "REPLACE_WITH_PUBLIC_RELAYER_URL",
   OPERATIONS_API_KEY: operationsKey,
@@ -53,7 +55,7 @@ writeEnv(relayerPath, {
   SESSION_SECRET: existingRelayer.SESSION_SECRET ?? secret(),
   OPERATIONS_API_KEY: operationsKey,
   FCC_PROXY_URL:
-    existingRelayer.FCC_PROXY_URL ?? "REPLACE_WITH_REAL_PUBLIC_FCC_PROXY_URL",
+    existingRelayer.FCC_PROXY_URL ?? "REPLACE_WITH_STABLE_PUBLIC_FCC_PROXY_URL",
   DIRECT_API_KEY: directApiKey,
   COSTON2_RPC_URL: rpc,
   QUIET_VAULT:
@@ -87,18 +89,27 @@ writeEnv(fccPath, {
   STATE_ENCRYPTION_KEY: existingFcc.STATE_ENCRYPTION_KEY ?? secret(),
   PROXY_PRIVATE_KEY: existingFcc.PROXY_PRIVATE_KEY ?? secret(),
   DIRECT_API_KEY: directApiKey,
-  FCC_CODE_HASH: existingFcc.FCC_CODE_HASH ?? "PENDING_REAL_TEE_MEASUREMENT",
-  INDEXER_DB_HOST: existingFcc.INDEXER_DB_HOST ?? "PENDING_FLARE_INDEXER_ACCESS",
+  FCC_CODE_HASH:
+    isPlaceholder(existingFcc.FCC_CODE_HASH)
+      ? simulatedCodeHash
+      : existingFcc.FCC_CODE_HASH,
+  INDEXER_DB_HOST:
+    isPlaceholder(existingFcc.INDEXER_DB_HOST)
+      ? "34.38.42.208"
+      : existingFcc.INDEXER_DB_HOST,
   INDEXER_DB_PORT: existingFcc.INDEXER_DB_PORT ?? "3306",
-  INDEXER_DB_NAME: existingFcc.INDEXER_DB_NAME ?? "PENDING_FLARE_INDEXER_ACCESS",
+  INDEXER_DB_NAME:
+    isPlaceholder(existingFcc.INDEXER_DB_NAME)
+      ? "indexer"
+      : existingFcc.INDEXER_DB_NAME,
   INDEXER_DB_USER: existingFcc.INDEXER_DB_USER ?? "PENDING_FLARE_INDEXER_ACCESS",
   INDEXER_DB_PASSWORD:
     existingFcc.INDEXER_DB_PASSWORD ?? "PENDING_FLARE_INDEXER_ACCESS",
   NORMAL_PROXY_URL: normalProxy,
   EXT_PROXY_URL:
-    existingFcc.EXT_PROXY_URL ?? "REPLACE_WITH_REAL_PUBLIC_FCC_PROXY_URL",
-  MODE: "0",
-  SIMULATED_TEE: "false",
-}, "Quietline real FCC deployment");
+    existingFcc.EXT_PROXY_URL ?? "REPLACE_WITH_STABLE_PUBLIC_FCC_PROXY_URL",
+  MODE: "1",
+  SIMULATED_TEE: "true",
+}, "Quietline Coston2 simulated judging deployment");
 
 console.log("Prepared .env, relayer/.env, frontend/.env.production, and fcc/.env.coston2");

@@ -1,10 +1,13 @@
-ARG TEE_PROXY_VERSION=v0.0.21
-FROM golang:1.25.1-alpine AS build
+ARG TEE_PROXY_REF=0c6d016b09948cba9a508ba357e592eb6088fd1c
+FROM golang:1.25.8-alpine AS build
 
 RUN apk add --no-cache git
-ARG TEE_PROXY_VERSION
+ARG TEE_PROXY_REF
 WORKDIR /src
-RUN git clone --depth 1 --branch "${TEE_PROXY_VERSION}" https://github.com/flare-foundation/tee-proxy.git .
+RUN git init \
+    && git remote add origin https://github.com/flare-foundation/tee-proxy.git \
+    && git fetch --depth 1 origin "${TEE_PROXY_REF}" \
+    && git checkout --detach FETCH_HEAD
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -buildid=" -o /tee-proxy ./cmd/proxy
 

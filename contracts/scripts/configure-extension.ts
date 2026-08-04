@@ -23,16 +23,26 @@ function requiredUrl(name: string) {
   return new URL(value);
 }
 
-function machineInfo(value: unknown): Required<Pick<SignedTeeInfo, "teeInfo" | "machineData">> {
+function machineInfo(
+  value: unknown,
+  allowSimulated: boolean,
+): Required<Pick<SignedTeeInfo, "teeInfo" | "machineData" | "attestation">> {
   if (!value || typeof value !== "object") throw new Error("FCC /info returned an invalid payload");
   const root = value as SignedTeeInfo;
   if (!root.teeInfo || !root.machineData) {
     throw new Error("FCC /info did not include both teeInfo and machineData");
   }
-  if (!root.attestation || root.attestation === "magic_pass") {
-    throw new Error("FCC /info did not include a real confidential-compute attestation");
+  if (!root.attestation) {
+    throw new Error("FCC /info did not include an attestation value");
   }
-  return { teeInfo: root.teeInfo, machineData: root.machineData };
+  if (root.attestation === "magic_pass" && !allowSimulated) {
+    throw new Error("FCC /info uses simulated attestation but SIMULATED_TEE is not enabled");
+  }
+  return {
+    teeInfo: root.teeInfo,
+    machineData: root.machineData,
+    attestation: root.attestation,
+  };
 }
 
 function uint(value: string | number | undefined, name: string) {
@@ -54,7 +64,8 @@ async function main() {
   const infoUrl = new URL("/info", requiredUrl("FCC_PROXY_URL"));
   const response = await fetch(infoUrl);
   if (!response.ok) throw new Error(`FCC /info returned ${response.status}`);
-  const info = machineInfo(await response.json());
+  const allowSimulated = process.env.SIMULATED_TEE === "true";
+  const info = machineInfo(await response.json(), allowSimulated);
   const chainId = uint(info.teeInfo.chainId, "teeInfo.chainId");
   if (chainId !== 114) throw new Error(`FCC machine is on chain ${chainId}, expected 114`);
   const machineExtensionId = uint(
@@ -83,6 +94,11 @@ async function main() {
   const codeHash = info.machineData.codeHash;
   if (!codeHash || !/^0x[0-9a-fA-F]{64}$/u.test(codeHash) || codeHash === ethers.ZeroHash) {
     throw new Error("FCC /info did not include a non-zero measured code hash");
+  }
+  const simulatedCodeHash =
+    "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2";
+  if (allowSimulated && codeHash.toLowerCase() !== simulatedCodeHash) {
+    throw new Error("simulated FCC /info returned an unexpected code hash");
   }
   const path = writeDeployment({ ...deployment, extensionId, teeSigner, codeHash });
   console.log(`QuietVault configured for FCC extension ${extensionId} and TEE signer ${teeSigner}`);

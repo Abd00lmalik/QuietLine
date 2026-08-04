@@ -24,18 +24,19 @@ func TestValidateProductionEnvironment(t *testing.T) {
 	}
 }
 
-func TestValidateProductionEnvironmentRejectsSimulation(t *testing.T) {
+func TestValidateProductionEnvironmentAcceptsExplicitSimulation(t *testing.T) {
 	validProductionEnv(t)
+	t.Setenv("MODE", "1")
 	t.Setenv("SIMULATED_TEE", "true")
-	if err := ValidateProductionEnvironment(Config{ChainID: 114}); err == nil {
-		t.Fatal("expected simulated TEE mode to be rejected")
+	if err := ValidateProductionEnvironment(Config{ChainID: 114}); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestValidateProductionEnvironmentRejectsNonProductionMode(t *testing.T) {
+func TestValidateProductionEnvironmentRejectsMismatchedMode(t *testing.T) {
 	validProductionEnv(t)
 	t.Setenv("MODE", "1")
 	if err := ValidateProductionEnvironment(Config{ChainID: 114}); err == nil {
-		t.Fatal("expected non-production mode to be rejected")
+		t.Fatal("expected mismatched simulation flags to be rejected")
 	}
 }
