@@ -85,7 +85,21 @@ func (e *Extension) signWithTEE(message []byte) (hexutil.Bytes, error) {
 	if len(out.Signature) != 65 {
 		return nil, errors.New("TEE returned an invalid signature")
 	}
-	return out.Signature, nil
+	return normalizeEthereumSignature(out.Signature)
+}
+
+func normalizeEthereumSignature(signature []byte) (hexutil.Bytes, error) {
+	if len(signature) != 65 {
+		return nil, errors.New("TEE returned an invalid signature")
+	}
+	normalized := append(hexutil.Bytes(nil), signature...)
+	if normalized[64] <= 1 {
+		normalized[64] += 27
+	}
+	if normalized[64] != 27 && normalized[64] != 28 {
+		return nil, errors.New("TEE returned an invalid recovery id")
+	}
+	return normalized, nil
 }
 
 func assetForToken(cfg config.Config, token common.Address) (string, error) {

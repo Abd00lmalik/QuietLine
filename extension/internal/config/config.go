@@ -27,6 +27,7 @@ const (
 	OPAccountQuery    = "ACCOUNT_QUERY"
 	OPStressQuery     = "STRESS_QUERY"
 	OPAnchorConfirmed = "ANCHOR_CONFIRMED"
+	OPRecoverAnchor   = "RECOVER_ANCHOR"
 )
 
 type Config struct {

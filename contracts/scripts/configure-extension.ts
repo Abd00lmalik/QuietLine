@@ -86,10 +86,8 @@ async function main() {
   }
   const teeSigner = signerFromPublicKey(info.teeInfo.publicKey);
   const configuredSigner = await vault.activeTeeSigner();
-  if (configuredSigner === ethers.ZeroAddress) {
+  if (configuredSigner.toLowerCase() !== teeSigner.toLowerCase()) {
     await (await vault.setTeeSigner(teeSigner)).wait();
-  } else if (configuredSigner.toLowerCase() !== teeSigner.toLowerCase()) {
-    throw new Error(`QuietVault signer ${configuredSigner} does not match FCC signer ${teeSigner}`);
   }
   const codeHash = info.machineData.codeHash;
   if (!codeHash || !/^0x[0-9a-fA-F]{64}$/u.test(codeHash) || codeHash === ethers.ZeroHash) {

@@ -34,3 +34,45 @@ func TestPackSettlementMatchesSolidityABIShape(t *testing.T) {
 		t.Fatal("vault was not domain-bound")
 	}
 }
+
+func TestRecoverableCheckpointKinds(t *testing.T) {
+	recoverable := []string{
+		config.OPRiskTick,
+		config.OPDeposit,
+		config.OPBackstopDeposit,
+		config.OPOpenAccount,
+		config.OPSetMandate,
+		config.OPCancelMandate,
+		config.OPApplyRepayment,
+	}
+	for _, kind := range recoverable {
+		if !isRecoverableCheckpoint(kind) {
+			t.Fatalf("%s should be recoverable as a checkpoint", kind)
+		}
+	}
+	for _, kind := range []string{config.OPBorrowAccept, config.OPWithdrawRequest} {
+		if isRecoverableCheckpoint(kind) {
+			t.Fatalf("%s must not be recoverable without fund-movement details", kind)
+		}
+	}
+}
+
+func TestNormalizeEthereumSignature(t *testing.T) {
+	for recoveryID, want := range map[byte]byte{0: 27, 1: 28, 27: 27, 28: 28} {
+		signature := make([]byte, 65)
+		signature[64] = recoveryID
+		got, err := normalizeEthereumSignature(signature)
+		if err != nil {
+			t.Fatalf("normalizing recovery id %d: %v", recoveryID, err)
+		}
+		if got[64] != want {
+			t.Fatalf("recovery id %d normalized to %d, want %d", recoveryID, got[64], want)
+		}
+	}
+
+	invalid := make([]byte, 65)
+	invalid[64] = 2
+	if _, err := normalizeEthereumSignature(invalid); err == nil {
+		t.Fatal("invalid recovery id should be rejected")
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	teetypes "github.com/flare-foundation/tee-node/pkg/types"
+	"github.com/quietline/quietline/extension/internal/config"
 	quiettypes "github.com/quietline/quietline/extension/pkg/types"
 )
 
@@ -24,6 +25,39 @@ func (e *Extension) handleAnchorConfirmation(action teetypes.Action, df *instruc
 		err = e.engine.ConfirmAnchor(payload.Sequence, payload.Root)
 	}
 	return resultJSON(action, df, []byte(`{"confirmed":true}`), err)
+}
+
+func (e *Extension) handleAnchorRecovery(action teetypes.Action, df *instruction.DataFixed) (int, []byte) {
+	state := e.engine.State()
+	if state.PendingAnchor == nil {
+		return resultJSON(action, df, nil, errors.New("no confidential anchor is pending"))
+	}
+	if !isRecoverableCheckpoint(state.PendingAnchor.Kind) {
+		return resultJSON(
+			action,
+			df,
+			nil,
+			errors.New("pending fund-movement anchor requires operator intervention"),
+		)
+	}
+	anchor, err := e.checkpoint(action.Data.ID, common.Address{})
+	data, _ := json.Marshal(anchor)
+	return resultJSON(action, df, data, err)
+}
+
+func isRecoverableCheckpoint(kind string) bool {
+	switch kind {
+	case config.OPRiskTick,
+		config.OPDeposit,
+		config.OPBackstopDeposit,
+		config.OPOpenAccount,
+		config.OPSetMandate,
+		config.OPCancelMandate,
+		config.OPApplyRepayment:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Extension) verifyAnchorOnChain(sequence uint64, root string) error {

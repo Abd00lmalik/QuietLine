@@ -131,6 +131,9 @@ func (e *Extension) processDirect(action teetypes.Action) (int, []byte) {
 	if di.OPCommand == teeutils.ToHash(config.OPAnchorConfirmed) {
 		return e.handleAnchorConfirmation(action, df, di.Message)
 	}
+	if di.OPCommand == teeutils.ToHash(config.OPRecoverAnchor) {
+		return e.handleAnchorRecovery(action, df)
+	}
 	plain, err := e.decrypt(di.Message)
 	if err != nil {
 		return resultJSON(action, df, nil, fmt.Errorf("decrypting direct action: %w", err))
