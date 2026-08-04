@@ -87,10 +87,16 @@ describe("QuietVault", function () {
     await expect(ctx.vault.requestRiskTick()).to.be.revertedWithCustomError(ctx.vault, "StaleOraclePrice");
   });
 
-  it("binds the settlement signer only once", async function () {
+  it("tracks the current production signer and permits registered machine rotation", async function () {
     const ctx = await fixture();
     await expect(ctx.vault.setTeeSigner(ctx.other.address))
-      .to.be.revertedWithCustomError(ctx.vault, "InvalidSettlement");
+      .to.be.revertedWithCustomError(ctx.vault, "InvalidTeeSignature");
+    await ctx.machines.setMachine(ctx.other.address, ctx.extensionId, 2);
+    await expect(ctx.vault.setTeeSigner(ctx.other.address))
+      .to.emit(ctx.vault, "TeeSignerConfigured")
+      .withArgs(ctx.other.address);
+    expect(await ctx.vault.isAuthorizedTeeSigner(ctx.tee.address)).to.equal(true);
+    expect(await ctx.vault.isAuthorizedTeeSigner(ctx.other.address)).to.equal(true);
   });
 
   it("funds the private liquidation backstop through an operator-only FCC instruction", async function () {

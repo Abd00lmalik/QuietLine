@@ -26,6 +26,7 @@ contract QuietVault is AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant OP_RISK_TICK = bytes32("RISK_TICK");
     bytes32 public constant SETTLEMENT_DOMAIN = keccak256("QUIETLINE_SETTLEMENT_V1");
     uint256 private constant FIRST_PUBLIC_EXTENSION_ID = 0x10000;
+    uint8 private constant TEE_STATUS_PRODUCTION = 2;
 
     enum SettlementType { BorrowPayout, UserWithdrawal, Checkpoint }
 
@@ -117,9 +118,23 @@ contract QuietVault is AccessControl, Pausable, ReentrancyGuard {
 
     function setTeeSigner(address signer) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (signer == address(0)) revert InvalidDestination();
-        if (activeTeeSigner != address(0)) revert InvalidSettlement();
+        if (!isAuthorizedTeeSigner(signer)) revert InvalidTeeSignature();
         activeTeeSigner = signer;
         emit TeeSignerConfigured(signer);
+    }
+
+    function isAuthorizedTeeSigner(address signer) public view returns (bool) {
+        if (signer == address(0) || extensionId == 0) return false;
+        try teeMachineRegistry.getExtensionId(signer) returns (uint256 signerExtensionId) {
+            if (signerExtensionId != extensionId) return false;
+        } catch {
+            return false;
+        }
+        try teeMachineRegistry.getTeeMachineStatus(signer) returns (uint8 status) {
+            return status == TEE_STATUS_PRODUCTION;
+        } catch {
+            return false;
+        }
     }
 
     function pause() external onlyRole(OPERATOR_ROLE) { _pause(); }
@@ -229,7 +244,7 @@ contract QuietVault is AccessControl, Pausable, ReentrancyGuard {
         }
 
         address recovered = ECDSA.recover(settlementHash(settlement).toEthSignedMessageHash(), signature);
-        if (recovered == address(0) || recovered != activeTeeSigner) revert InvalidTeeSignature();
+        if (!isAuthorizedTeeSigner(recovered)) revert InvalidTeeSignature();
 
         usedSettlementId[settlement.settlementId] = true;
         stateSequence = settlement.nextSequence;
