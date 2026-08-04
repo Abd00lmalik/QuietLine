@@ -3,12 +3,12 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /app
 RUN corepack enable
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/protocol/package.json packages/protocol/package.json
-COPY contracts/package.json contracts/package.json
-COPY frontend/package.json frontend/package.json
 COPY relayer/package.json relayer/package.json
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=quietline-pnpm,target=/pnpm/store \
+    pnpm config set store-dir /pnpm/store \
+    && pnpm install --filter @quietline/relayer... --frozen-lockfile
 
 COPY packages/protocol packages/protocol
 COPY relayer relayer

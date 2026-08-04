@@ -3,7 +3,7 @@ import type { Store } from "./db.js";
 import type { Orchestrator } from "./orchestrator.js";
 
 const CURSOR = "quiet_vault";
-const MAX_BLOCK_RANGE = 2_000n;
+const MAX_BLOCK_RANGE = 30n;
 
 export class Indexer {
   private timer: NodeJS.Timeout | undefined;

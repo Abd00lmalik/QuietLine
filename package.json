@@ -28,7 +28,7 @@
     "fcc:sync-tooling": "node scripts/coston2/sync-fcc-tooling.mjs",
     "fcc:render-config": "node --env-file=fcc/.env.coston2 fcc/render-proxy-config.mjs",
     "fcc:validate-compose": "docker compose --env-file fcc/.env.coston2 -f fcc/docker-compose.coston2.yaml config --quiet",
-    "fcc:tunnel:up": "docker compose --env-file .env --env-file fcc/.env.coston2 -f fcc/docker-compose.coston2.yaml -f fcc/docker-compose.ngrok.yaml up -d ngrok-fcc",
+    "fcc:tunnel:up": "docker compose --env-file .env --env-file fcc/.env.coston2 -f fcc/docker-compose.coston2.yaml -f fcc/docker-compose.ngrok.yaml up -d relayer public-gateway ngrok-fcc",
     "fcc:tunnel:logs": "docker compose --env-file .env --env-file fcc/.env.coston2 -f fcc/docker-compose.coston2.yaml -f fcc/docker-compose.ngrok.yaml logs --tail=100 ngrok-fcc",
     "image:all": "node scripts/coston2/build-images.mjs",
     "image:extension": "node scripts/coston2/build-images.mjs extension",

@@ -134,7 +134,9 @@ corepack pnpm coston2:preflight
    `trycloudflare.com` quick tunnel because its hostname changes after restart.
    For an account-bound ngrok domain, put `AUTH_TOKEN` in the ignored root
    `.env`, put the assigned hostname in `NGROK_DOMAIN` inside the ignored
-   `fcc/.env.coston2`, and launch the durable tunnel service:
+   `fcc/.env.coston2`, and launch the durable tunnel service. The public
+   gateway keeps the FCC proxy at the hostname root and exposes the relayer
+   under `/api`:
 
    ```powershell
    corepack pnpm fcc:tunnel:up
