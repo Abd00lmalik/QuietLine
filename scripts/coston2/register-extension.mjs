@@ -59,11 +59,12 @@ if (extensionBigInt > BigInt(Number.MAX_SAFE_INTEGER)) {
   throw new Error("FCC extension ID exceeds JavaScript's safe integer range");
 }
 deployment.extensionId = Number(extensionBigInt);
+const extensionIdHex = `0x${extensionBigInt.toString(16).padStart(64, "0")}`;
 writeJson(deploymentPath, deployment);
 
 writeEnv(fccEnvPath, {
   ...fccEnv,
-  EXTENSION_ID: String(deployment.extensionId),
+  EXTENSION_ID: extensionIdHex,
   INITIAL_OWNER: owner,
   GOVERNANCE_SIGNERS: owner,
   QUIET_VAULT: vault,

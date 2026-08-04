@@ -118,7 +118,17 @@ func uint64Env(name string, fallback uint64) uint64 {
 	return fallback
 }
 func requiredUint64Env(name string) (uint64, error) {
-	v, err := strconv.ParseUint(os.Getenv(name), 10, 64)
+	raw := os.Getenv(name)
+	base := 10
+	if strings.HasPrefix(raw, "0x") || strings.HasPrefix(raw, "0X") {
+		raw = strings.TrimPrefix(strings.TrimPrefix(raw, "0x"), "0X")
+		raw = strings.TrimLeft(raw, "0")
+		if raw == "" {
+			raw = "0"
+		}
+		base = 16
+	}
+	v, err := strconv.ParseUint(raw, base, 64)
 	if err != nil || v < 65_536 {
 		return 0, errors.New(name + " must be a registered public extension ID")
 	}

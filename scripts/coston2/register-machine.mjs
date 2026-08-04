@@ -16,7 +16,7 @@ const privateKey = requireValue(
 );
 const proxyUrl = requireValue(fccEnv, "EXT_PROXY_URL", /^https:\/\//u);
 const owner = requireValue(fccEnv, "INITIAL_OWNER", /^0x[0-9a-fA-F]{40}$/u);
-requireValue(fccEnv, "EXTENSION_ID", /^\d+$/u);
+requireValue(fccEnv, "EXTENSION_ID", /^0x[0-9a-fA-F]{64}$/u);
 if (fccEnv.SIMULATED_TEE !== "true" || fccEnv.MODE !== "1") {
   throw new Error("Coston2 judging registration requires SIMULATED_TEE=true and MODE=1");
 }

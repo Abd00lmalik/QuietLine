@@ -40,3 +40,20 @@ func TestValidateProductionEnvironmentRejectsMismatchedMode(t *testing.T) {
 		t.Fatal("expected mismatched simulation flags to be rejected")
 	}
 }
+
+func TestLoadAcceptsBytes32ExtensionID(t *testing.T) {
+	t.Setenv("EXTENSION_ID", "0x0000000000000000000000000000000000000000000000000000000000010189")
+	t.Setenv("CHAIN_URL", "https://coston2-api.flare.network/ext/C/rpc")
+	t.Setenv("STATE_ENCRYPTION_KEY", "0000000000000000000000000000000000000000000000000000000000000000")
+	t.Setenv("QUIET_VAULT", "0x1111111111111111111111111111111111111111")
+	t.Setenv("FXRP_ADDRESS", "0x2222222222222222222222222222222222222222")
+	t.Setenv("USDT0_ADDRESS", "0x3333333333333333333333333333333333333333")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ExtensionID != 65929 {
+		t.Fatalf("expected extension ID 65929, got %d", cfg.ExtensionID)
+	}
+}
