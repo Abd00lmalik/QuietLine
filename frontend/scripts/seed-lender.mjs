@@ -22,6 +22,7 @@ const instructionFee = BigInt(
 );
 const operator = privateKeyToAccount(normalizePrivateKey(required("DEPLOYER_PRIVATE_KEY")));
 const borrowerKey = process.env.TEST_WALLET?.trim();
+const executeBorrow = process.argv.includes("--borrow");
 const headers = relayerUrl.includes(".ngrok-free.dev")
   ? { "ngrok-skip-browser-warning": "quietline" }
   : {};
@@ -43,7 +44,9 @@ const erc20Abi = parseAbi([
 ]);
 const vaultAbi = parseAbi([
   "function deposit(address token, uint256 amount) payable returns (bytes32 depositId, bytes32 requestId)",
+  "function requestBorrow(bytes encryptedAcceptance) payable returns (bytes32 requestId)",
   "event DepositSubmitted(bytes32 indexed depositId, address indexed account, address indexed token, uint256 amount, bytes32 requestId)",
+  "event ConfidentialRequestSubmitted(bytes32 indexed requestId, bytes32 indexed command, address indexed account)",
 ]);
 
 const config = await api("/config");
@@ -175,6 +178,70 @@ if (borrowerKey) {
   console.log(
     `Borrower quote verified: ${quote.amount} base units across ${quote.tranches.length} mandate(s)`,
   );
+  if (executeBorrow) {
+    if (borrowerView.loan) {
+      console.log(`Borrower already has active loan ${borrowerView.loan.id}; skipping settlement`);
+    } else {
+      const borrowerWallet = createWalletClient({
+        account: borrower,
+        chain,
+        transport: http(rpcUrl),
+      });
+      const payoutBefore = await publicClient.readContract({
+        address: config.assets.USDT0.address,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [borrower.address],
+      });
+      const acceptance = createActionDraft({
+        sender: borrower.address,
+        nonce: borrowerView.account.nonce,
+        action: "BORROW_ACCEPT",
+        payload: { quote, loanId: crypto.randomUUID() },
+        chainId: config.network.id,
+        vault: config.vault,
+      });
+      const acceptanceSignature = await borrower.signTypedData(acceptance.typedData);
+      const encryptedAcceptance = await sealSignedAction(
+        acceptance,
+        acceptanceSignature,
+        teePublicKey,
+      );
+      const borrowHash = await borrowerWallet.writeContract({
+        address: config.vault,
+        abi: vaultAbi,
+        functionName: "requestBorrow",
+        args: [encryptedAcceptance],
+        value: instructionFee,
+      });
+      const borrowReceipt = await publicClient.waitForTransactionReceipt({
+        hash: borrowHash,
+      });
+      const borrowRequestId = eventRequestId(
+        borrowReceipt,
+        "ConfidentialRequestSubmitted",
+      );
+      await waitForChainJob(borrowRequestId, borrowerSession.token);
+      const settledView = await directAccount(
+        borrower,
+        borrowerSession.token,
+        config,
+        teePublicKey,
+        borrowerView.account.nonce + 1,
+      );
+      const payoutAfter = await publicClient.readContract({
+        address: config.assets.USDT0.address,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [borrower.address],
+      });
+      if (!settledView.loan || payoutAfter - payoutBefore !== BigInt(quote.amount)) {
+        throw new Error("Borrow settlement did not create the private loan and exact public payout");
+      }
+      console.log(`Borrow settlement confirmed: ${borrowHash}`);
+      console.log(`Private loan active: ${settledView.loan.id}`);
+    }
+  }
 }
 
 console.log("Real Coston2 lender liquidity is ready");
@@ -298,12 +365,12 @@ async function waitForJob(id, token, timeoutMs = 90_000) {
   throw new Error(`Timed out waiting for FCC job ${id}`);
 }
 
-function eventRequestId(receipt) {
+function eventRequestId(receipt, eventName = "DepositSubmitted") {
   for (const log of receipt.logs) {
     try {
       const event = decodeEventLog({
         abi: vaultAbi,
-        eventName: "DepositSubmitted",
+        eventName,
         data: log.data,
         topics: log.topics,
       });
@@ -312,22 +379,42 @@ function eventRequestId(receipt) {
       // Ignore unrelated receipt logs.
     }
   }
-  throw new Error("Deposit receipt did not contain a QuietVault request id");
+  throw new Error(`${eventName} receipt did not contain a QuietVault request id`);
 }
 
 async function api(path, init = {}) {
-  const response = await fetch(`${relayerUrl}${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...headers,
-      ...(init.token ? { authorization: `Bearer ${init.token}` } : {}),
-      ...init.headers,
-    },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.message || `Quietline API returned ${response.status}`);
-  return body;
+  const { token, retry, ...requestInit } = init;
+  const method = requestInit.method?.toUpperCase() || "GET";
+  const retryable = retry ?? (method === "GET" || path.startsWith("/auth/"));
+  const attempts = retryable ? 4 : 1;
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(`${relayerUrl}${path}`, {
+        ...requestInit,
+        headers: {
+          "content-type": "application/json",
+          ...headers,
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+          ...requestInit.headers,
+        },
+      });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok) return body;
+      const error = new Error(body.message || `Quietline API returned ${response.status}`);
+      if (![429, 502, 503, 504].includes(response.status) || attempt === attempts) {
+        throw error;
+      }
+      lastError = error;
+    } catch (error) {
+      lastError = error;
+      if (!retryable || attempt === attempts) throw error;
+    }
+    await sleep(500 * attempt);
+  }
+
+  throw lastError;
 }
 
 function createActionDraft(input) {

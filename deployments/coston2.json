@@ -4,7 +4,7 @@
   "quietPolicy": "0x90dC7172b5a771A51AfA6dF0De09022Df674Ab5d",
   "quietVault": "0x0A7fF224174896A743B41491f0Ef8036B32Fc5E4",
   "extensionId": 65951,
-  "teeSigner": "0xA1A458E72E8aaF037f3d7c4d401f91b3d0e7C5BE",
+  "teeSigner": "0xa91507BD8C7BC10E8b46C49131645b89E44e9321",
   "codeHash": "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
   "startBlock": 33630485,
   "infrastructure": {

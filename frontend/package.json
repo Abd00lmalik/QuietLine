@@ -10,7 +10,8 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "tsc -b --pretty false",
     "test": "vitest run",
-    "coston2:seed-lender": "node --env-file=../.env scripts/seed-lender.mjs"
+    "coston2:seed-lender": "node --env-file=../.env scripts/seed-lender.mjs",
+    "coston2:smoke-borrow": "node --env-file=../.env scripts/seed-lender.mjs --borrow"
   },
   "dependencies": {
     "@noble/curves": "^1.9.7",
