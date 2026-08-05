@@ -147,26 +147,77 @@ export class Orchestrator {
       }
 
       job = this.update(job.id, { status: "settling" });
-      const txHash = job.txHash ?? (await this.chain.execute(anchor));
+      const txHash = await this.settleAnchor(anchor, job.txHash);
       job = this.update(job.id, { txHash, status: "confirming" });
-
-      const confirmationId = await this.fcc.submitJson("ANCHOR_CONFIRMED", {
-        sequence: anchor.settlement.nextSequence,
-        root: anchor.settlement.nextRoot,
-      });
-      const confirmation = await this.fcc.poll(confirmationId, "submit");
-      if (confirmation.result.status !== 1) {
-        throw new Error(
-          confirmation.result.log ||
-            `anchor confirmation returned status ${confirmation.result.status}`,
-        );
-      }
       this.update(job.id, { status: "confirmed" });
     } catch (error) {
+      if (isPendingAnchorError(error)) {
+        try {
+          await this.recoverPendingAnchor();
+          this.update(job.id, {
+            status: "failed",
+            error: "A prior confidential checkpoint was recovered. Retry this request.",
+          });
+          return;
+        } catch (recoveryError) {
+          this.update(job.id, {
+            status: "failed",
+            error: `${errorMessage(error)}; anchor recovery failed: ${errorMessage(recoveryError)}`,
+          });
+          return;
+        }
+      }
       this.update(job.id, {
         status: "failed",
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
+    }
+  }
+
+  private async recoverPendingAnchor() {
+    const recoveryId = await this.fcc.submitJson("RECOVER_ANCHOR", {});
+    const recovery = await this.fcc.poll(recoveryId, "submit");
+    if (recovery.result.status !== 1) {
+      throw new Error(
+        recovery.result.log ||
+          `anchor recovery returned status ${recovery.result.status}`,
+      );
+    }
+    const anchor = this.fcc.decode<Anchor>(recovery.result.data);
+    const state = await this.chain.anchorState();
+    const settlement = anchor.settlement;
+    const chainAtPrevious =
+      state.sequence === settlement.previousSequence &&
+      sameHex(state.root, settlement.previousRoot);
+    const chainAtNext =
+      state.sequence === settlement.nextSequence &&
+      sameHex(state.root, settlement.nextRoot);
+    if (!chainAtPrevious && !chainAtNext) {
+      throw new Error("vault anchor diverges from the recoverable FCC checkpoint");
+    }
+    if (chainAtPrevious) {
+      await this.chain.execute(anchor);
+    }
+    await this.confirmAnchor(anchor);
+  }
+
+  private async settleAnchor(anchor: Anchor, existingTxHash?: string) {
+    const txHash = existingTxHash ?? (await this.chain.execute(anchor));
+    await this.confirmAnchor(anchor);
+    return txHash;
+  }
+
+  private async confirmAnchor(anchor: Anchor) {
+    const confirmationId = await this.fcc.submitJson("ANCHOR_CONFIRMED", {
+      sequence: anchor.settlement.nextSequence,
+      root: anchor.settlement.nextRoot,
+    });
+    const confirmation = await this.fcc.poll(confirmationId, "submit");
+    if (confirmation.result.status !== 1) {
+      throw new Error(
+        confirmation.result.log ||
+          `anchor confirmation returned status ${confirmation.result.status}`,
+      );
     }
   }
 
@@ -193,4 +244,18 @@ function findAnchor(value: SecureResponse | MutationResponse | Anchor | undefine
   if ("settlement" in value && "signature" in value) return value as Anchor;
   if ("anchor" in value && value.anchor) return value.anchor;
   return undefined;
+}
+
+function isPendingAnchorError(error: unknown) {
+  return errorMessage(error).includes(
+    "previous confidential mutation is awaiting on-chain anchor",
+  );
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function sameHex(left: string, right: string) {
+  return left.toLowerCase() === right.toLowerCase();
 }

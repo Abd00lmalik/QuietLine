@@ -137,6 +137,22 @@ export class ChainClient {
     return this.publicClient.getBlockNumber();
   }
 
+  async anchorState() {
+    const [sequence, root] = await Promise.all([
+      this.publicClient.readContract({
+        address: this.cfg.QUIET_VAULT as Address,
+        abi,
+        functionName: "stateSequence",
+      }),
+      this.publicClient.readContract({
+        address: this.cfg.QUIET_VAULT as Address,
+        abi,
+        functionName: "stateRoot",
+      }),
+    ]);
+    return { sequence: Number(sequence), root };
+  }
+
   async market() {
     const [price, liquidity] = await Promise.all([
       this.publicClient.readContract({
