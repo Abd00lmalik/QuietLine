@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "lint": "tsc -b --pretty false",
-    "test": "vitest run"
+    "test": "vitest run",
+    "coston2:seed-lender": "node --env-file=../.env scripts/seed-lender.mjs"
   },
   "dependencies": {
     "@noble/curves": "^1.9.7",
