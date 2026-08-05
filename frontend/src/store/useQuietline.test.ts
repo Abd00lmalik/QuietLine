@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { beforeEach, describe, expect, it } from "vitest";
 import type { PrivateAccountView } from "../lib/privateTypes";
 import { useQuietline } from "./useQuietline";
@@ -5,7 +7,9 @@ import { useQuietline } from "./useQuietline";
 const address = "0x1111111111111111111111111111111111111111";
 
 beforeEach(() => {
+  sessionStorage.clear();
   useQuietline.setState({
+    hasHydrated: true,
     mode: "live",
     address,
     accountNonce: 0,
@@ -23,6 +27,40 @@ beforeEach(() => {
 });
 
 describe("Quietline private account hydration", () => {
+  it("persists an active private session across a same-tab refresh", async () => {
+    const expiresAt = Date.now() + 15 * 60_000;
+    useQuietline.getState().connectLive(address, "signed-session", expiresAt);
+    useQuietline.setState({
+      privateFxrp: 8.5,
+      privateUsdt0: 2,
+      accountNonce: 3,
+    });
+
+    const persisted = sessionStorage.getItem("quietline.private-session");
+    expect(persisted).toContain("signed-session");
+
+    useQuietline.setState({
+      mode: "disconnected",
+      address: undefined,
+      sessionToken: undefined,
+      privateFxrp: 0,
+      privateUsdt0: 0,
+      accountNonce: 0,
+    });
+    sessionStorage.setItem("quietline.private-session", persisted!);
+    await useQuietline.persist.rehydrate();
+
+    expect(useQuietline.getState()).toMatchObject({
+      mode: "live",
+      address,
+      sessionToken: "signed-session",
+      sessionExpiresAt: expiresAt,
+      privateFxrp: 8.5,
+      privateUsdt0: 2,
+      accountNonce: 3,
+    });
+  });
+
   it("maps the FCC fixed-point ledger into the browser view", () => {
     const view: PrivateAccountView = {
       account: {

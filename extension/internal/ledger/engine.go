@@ -14,6 +14,7 @@ import (
 
 var (
 	ErrInsufficientBalance = errors.New("insufficient private balance")
+	ErrInsufficientLiquidity = errors.New("no eligible private lender liquidity for this request")
 	ErrDuplicate           = errors.New("operation already processed")
 	ErrLiquidityChanged    = errors.New("liquidity changed; request a new quote")
 	ErrAnchorPending       = errors.New("previous confidential mutation is awaiting on-chain anchor")
@@ -247,7 +248,7 @@ func quote(s *State, req QuoteRequest, now time.Time) (Quote, error) {
 		}
 	}
 	if remaining != 0 {
-		return Quote{}, ErrLiquidityChanged
+		return Quote{}, ErrInsufficientLiquidity
 	}
 	lenderAPR := uint32(weighted / req.Amount)
 	return Quote{RequestID: req.ID, Borrower: strings.ToLower(req.Borrower), Amount: req.Amount, TermDays: req.TermDays, CollateralFXRP: req.CollateralFXRP, LenderAPRBPS: lenderAPR, BorrowerAPRBPS: lenderAPR + 50, MaxAPRBPS: req.MaxAPRBPS, Tranches: tranches, ExpiresAt: req.ExpiresAt, PriceE6: s.Price.XRPUSDE6}, nil

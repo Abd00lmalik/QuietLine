@@ -1,4 +1,4 @@
-import { createConfig, http } from "wagmi";
+import { createConfig, createStorage, http } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { COSTON2 } from "@quietline/protocol";
 
@@ -18,5 +18,9 @@ export const coston2 = {
 export const wagmiConfig = createConfig({
   chains: [coston2],
   connectors: [injected({ shimDisconnect: true })],
+  storage: createStorage({
+    storage: window.localStorage,
+    key: "quietline.wallet",
+  }),
   transports: { [coston2.id]: http(COSTON2.rpcUrl) },
 });

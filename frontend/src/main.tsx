@@ -9,7 +9,7 @@ import "./styles.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: false },
+    queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: true },
     mutations: { retry: 0 },
   },
 });
@@ -19,7 +19,7 @@ if (!root) throw new Error("root element is missing");
 
 createRoot(root).render(
   <StrictMode>
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={wagmiConfig} reconnectOnMount>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
       </QueryClientProvider>

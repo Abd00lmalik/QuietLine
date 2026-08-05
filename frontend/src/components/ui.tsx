@@ -21,6 +21,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
 } from "react";
+import { assetSymbol } from "@quietline/protocol";
 
 export function Button({
   variant = "primary",
@@ -127,7 +128,7 @@ export function AssetBadge({ asset }: { asset: "FXRP" | "USDT0" }) {
   return (
     <span className={`asset-badge asset-badge--${asset.toLowerCase()}`}>
       <span aria-hidden="true">{asset === "FXRP" ? "X" : "$"}</span>
-      {asset}
+      {assetSymbol(asset)}
     </span>
   );
 }

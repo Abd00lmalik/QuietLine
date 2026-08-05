@@ -103,6 +103,22 @@ func TestQuoteDoesNotReserveAndAcceptanceRevalidates(t *testing.T) {
 	}
 }
 
+func TestQuoteDistinguishesMissingLiquidityFromAcceptanceRace(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	if err := e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-only"); err != nil {
+		t.Fatal(err)
+	}
+	confirmPending(t, e)
+	_, err := e.Quote(QuoteRequest{
+		ID: "quote-empty", Borrower: "0xBorrower", Amount: 3 * Scale,
+		TermDays: 14, MaxAPRBPS: 1200, CollateralFXRP: 10 * Scale,
+		ExpiresAt: now.Add(5 * time.Minute).Unix(),
+	})
+	if !errors.Is(err, ErrInsufficientLiquidity) {
+		t.Fatalf("expected insufficient lender liquidity, got %v", err)
+	}
+}
+
 func TestFullRepaymentConservesPrincipalAndReleasesCollateral(t *testing.T) {
 	e, _, now := newTestEngine(t)
 	seedCanonical(t, e, *now)

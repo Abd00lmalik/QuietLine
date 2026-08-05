@@ -56,8 +56,8 @@ export async function getConfig() {
       faucetUrl: string;
     };
     assets: {
-      FXRP: { symbol: "FXRP"; address: Address; decimals: number };
-      USDT0: { symbol: "USDT0"; address: Address; decimals: number };
+      FXRP: { symbol: "FTestXRP"; address: Address; decimals: number };
+      USDT0: { symbol: "USD₮0"; address: Address; decimals: number };
     };
     policy: {
       termsDays: readonly number[];

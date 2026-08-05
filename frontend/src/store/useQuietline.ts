@@ -1,5 +1,7 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type { Address, Hex } from "viem";
+import { assetSymbol, type AssetId } from "@quietline/protocol";
 import type { RelayerJob } from "../lib/api";
 import type {
   PrivateAccountView,
@@ -36,6 +38,7 @@ export type Position = {
 };
 
 type QuietlineState = {
+  hasHydrated: boolean;
   mode: "disconnected" | "live";
   address?: Address | undefined;
   sessionToken?: string | undefined;
@@ -74,18 +77,19 @@ type QuietlineState = {
   lock: () => void;
   disconnect: () => void;
   toggleNotification: (key: keyof QuietlineState["notifications"]) => void;
+  setHasHydrated: (value: boolean) => void;
 };
 
-export const useQuietline = create<QuietlineState>((set) => ({
-  mode: "disconnected",
+const initialPrivateState = {
+  mode: "disconnected" as const,
   accountNonce: 0,
   privateFxrp: 0,
   privateUsdt0: 0,
   lenderAllocated: 0,
   lenderEarned: 0,
-  mandates: [],
-  activities: [],
-  marketStatus: "loading",
+  mandates: [] as PrivateMandate[],
+  activities: [] as ActivityItem[],
+  marketStatus: "loading" as const,
   notifications: {
     health: true,
     maturity24h: true,
@@ -93,6 +97,11 @@ export const useQuietline = create<QuietlineState>((set) => ({
     deposit: true,
     payout: true,
   },
+};
+
+export const useQuietline = create<QuietlineState>()(persist((set) => ({
+  ...initialPrivateState,
+  hasHydrated: false,
   connectLive: (address, sessionToken, sessionExpiresAt) =>
     set({
       mode: "live",
@@ -122,7 +131,7 @@ export const useQuietline = create<QuietlineState>((set) => ({
           scope: "private",
           label: privateActivityLabel(item.kind),
           detail: item.asset && item.amount !== undefined
-            ? `${(item.amount / scale).toFixed(4)} ${item.asset}`
+            ? `${(item.amount / scale).toFixed(4)} ${assetSymbol(item.asset as AssetId)}`
             : "Confidential ledger state updated",
           status: "complete",
           timestamp: new Date(item.createdAt * 1000).toLocaleString(),
@@ -231,6 +240,35 @@ export const useQuietline = create<QuietlineState>((set) => ({
     set((state) => ({
       notifications: { ...state.notifications, [key]: !state.notifications[key] },
     })),
+  setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+}), {
+  name: "quietline.private-session",
+  storage: createJSONStorage(() => sessionStorage),
+  partialize: (state) => ({
+    mode: state.mode,
+    address: state.address,
+    sessionToken: state.sessionToken,
+    sessionExpiresAt: state.sessionExpiresAt,
+    accountNonce: state.accountNonce,
+    privateUpdatedAt: state.privateUpdatedAt,
+    privateFxrp: state.privateFxrp,
+    privateUsdt0: state.privateUsdt0,
+    lenderAllocated: state.lenderAllocated,
+    lenderEarned: state.lenderEarned,
+    mandates: state.mandates,
+    position: state.position,
+    activities: state.activities,
+    notifications: state.notifications,
+  }),
+  onRehydrateStorage: () => (state) => {
+    state?.setHasHydrated(true);
+    if (
+      state?.sessionExpiresAt !== undefined &&
+      state.sessionExpiresAt <= Date.now()
+    ) {
+      state.lock();
+    }
+  },
 }));
 
 function positionFromView(

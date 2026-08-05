@@ -10,16 +10,22 @@ export const COSTON2 = {
 
 export const ASSETS = {
   FXRP: {
-    symbol: "FXRP",
+    symbol: "FTestXRP",
     address: "0x0b6A3645c240605887a5532109323A3E12273dc7",
     decimals: 6,
   },
   USDT0: {
-    symbol: "USDT0",
+    symbol: "USD₮0",
     address: "0xC1A5B41512496B80903D1f32d6dEa3a73212E71F",
     decimals: 6,
   },
 } as const;
+
+export type AssetId = keyof typeof ASSETS;
+
+export function assetSymbol(asset: AssetId) {
+  return ASSETS[asset].symbol;
+}
 
 export const POLICY = {
   version: 1,

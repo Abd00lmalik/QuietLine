@@ -35,6 +35,10 @@ import { usePrivateActions } from "../hooks/usePrivateActions";
 import { downloadPrivateStatement } from "../lib/statement";
 import { useQuietline, type Position } from "../store/useQuietline";
 import { DepositModal } from "./OverviewPage";
+import { assetSymbol } from "@quietline/protocol";
+
+const fxrpSymbol = assetSymbol("FXRP");
+const usdt0Symbol = assetSymbol("USDT0");
 
 export function PositionPage() {
   const position = useQuietline((state) => state.position);
@@ -44,7 +48,7 @@ export function PositionPage() {
     return (
       <div className="page">
         <div className="page-heading"><div><span className="page-kicker">Private position</span><h1>Position</h1></div></div>
-        <EmptyState title="No active position" body="Open a private FXRP credit line to inspect risk and interest here." action={<Button onClick={() => navigate("/app/borrow")}>Go to Borrow</Button>} />
+        <EmptyState title="No active position" body={`Open a private ${fxrpSymbol} credit line to inspect risk and interest here.`} action={<Button onClick={() => navigate("/app/borrow")}>Go to Borrow</Button>} />
       </div>
     );
   }
@@ -155,10 +159,10 @@ function ActivePosition() {
       </div>
 
       <section className="position-summary">
-        <Metric label="Total debt" value={`${debt.toFixed(4)} USDT0`} privateValue />
+        <Metric label="Total debt" value={`${debt.toFixed(4)} ${usdt0Symbol}`} privateValue />
         <Metric label="Borrower APR" value={`${position.apr.toFixed(2)}%`} detail={`${position.tranches.length} private lender ${position.tranches.length === 1 ? "tranche" : "tranches"}`} privateValue />
         <Metric label="Maturity" value={timeUntil(position.maturesAt)} detail={position.maturity} privateValue />
-        <Metric label="Collateral value" value={marketPriceE6 ? `$${(position.collateral * marketPrice).toFixed(2)}` : "Loading"} detail={`${position.collateral.toFixed(2)} FXRP`} privateValue />
+        <Metric label="Collateral value" value={marketPriceE6 ? `$${(position.collateral * marketPrice).toFixed(2)}` : "Loading"} detail={`${position.collateral.toFixed(2)} ${fxrpSymbol}`} privateValue />
         <Metric label="LTV" value={`${position.ltv.toFixed(1)}%`} detail="Warning at 55%" privateValue />
         <Metric label="Health factor" value={position.healthFactor.toFixed(2)} detail="Liquidation at 1.00" privateValue />
       </section>
@@ -195,7 +199,7 @@ function ActivePosition() {
 
         <section className="panel interest-panel">
           <header className="panel__header"><div><span>Private accrual</span><h2>Interest</h2></div><PrivacyLabel scope="private" /></header>
-          <div className="interest-total"><span>Repayment now</span><strong>{debt.toFixed(6)} USDT0</strong></div>
+          <div className="interest-total"><span>Repayment now</span><strong>{debt.toFixed(6)} {usdt0Symbol}</strong></div>
           <div className="market-list">
             <div><span>Principal</span><strong>{position.principal.toFixed(4)}</strong></div>
             <div><span>Accrued lender interest</span><strong>{lenderAccrued.toFixed(6)}</strong></div>
@@ -255,7 +259,7 @@ function RepayModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const debt = position.principal + position.accruedInterest;
   const submit = async () => {
     if (available < debt) {
-      push({ tone: "error", title: "Deposit enough private USDT0 to close the position" });
+      push({ tone: "error", title: `Deposit enough private ${usdt0Symbol} to close the position` });
       return;
     }
     setLoading(true);
@@ -278,8 +282,8 @@ function RepayModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     }
   };
   return (
-    <Modal open={open} onClose={loading ? () => undefined : onClose} title="Repay private position" description="Repayment allocation stays confidential and moves no tokens when USDT0 is already in QuietVault.">
-      <div className="modal-metrics"><Metric label="Total debt" value={`${debt.toFixed(4)} USDT0`} privateValue /><Metric label="Private available" value={`${available.toFixed(2)} USDT0`} privateValue /></div>
+    <Modal open={open} onClose={loading ? () => undefined : onClose} title="Repay private position" description={`Repayment allocation stays confidential and moves no tokens when ${usdt0Symbol} is already in QuietVault.`}>
+      <div className="modal-metrics"><Metric label="Total debt" value={`${debt.toFixed(4)} ${usdt0Symbol}`} privateValue /><Metric label="Private available" value={`${available.toFixed(2)} ${usdt0Symbol}`} privateValue /></div>
       <div className="privacy-notice">
         <LockKeyhole size={17} />
         <p><strong>Full close only.</strong> The hackathon release repays the full debt and releases all collateral in one confidential state transition.</p>
@@ -300,13 +304,13 @@ function CloseModal({ open, onClose, onClosed }: { open: boolean; onClose: () =>
   const shortage = Math.max(0, debt - available);
   const submit = async () => {
     if (shortage > 0) {
-      push({ tone: "warning", title: `Deposit ${shortage.toFixed(4)} more USDT0 first` });
+      push({ tone: "warning", title: `Deposit ${shortage.toFixed(4)} more ${usdt0Symbol} first` });
       return;
     }
     setLoading(true);
     try {
       await repay(available);
-      push({ tone: "success", title: "Position closed", body: "All FXRP collateral is available privately." });
+      push({ tone: "success", title: "Position closed", body: `All ${fxrpSymbol} collateral is available privately.` });
       onClosed();
     } catch (error) {
       push({
@@ -319,9 +323,9 @@ function CloseModal({ open, onClose, onClosed }: { open: boolean; onClose: () =>
     }
   };
   return (
-    <Modal open={open} onClose={loading ? () => undefined : onClose} title="Close private position" description="Quietline will repay the full debt and release all remaining FXRP collateral.">
-      {shortage > 0 ? <div className="warning-banner"><AlertTriangle size={18} /><div><strong>Additional USDT0 required</strong><p>Deposit {shortage.toFixed(4)} USDT0 before closing.</p></div></div> : null}
-      <div className="modal-metrics"><Metric label="Repayment required" value={`${debt.toFixed(4)} USDT0`} privateValue /><Metric label="FXRP released" value={`${position.collateral.toFixed(2)} FXRP`} privateValue /></div>
+    <Modal open={open} onClose={loading ? () => undefined : onClose} title="Close private position" description={`Quietline will repay the full debt and release all remaining ${fxrpSymbol} collateral.`}>
+      {shortage > 0 ? <div className="warning-banner"><AlertTriangle size={18} /><div><strong>Additional {usdt0Symbol} required</strong><p>Deposit {shortage.toFixed(4)} {usdt0Symbol} before closing.</p></div></div> : null}
+      <div className="modal-metrics"><Metric label="Repayment required" value={`${debt.toFixed(4)} ${usdt0Symbol}`} privateValue /><Metric label={`${fxrpSymbol} released`} value={`${position.collateral.toFixed(2)} ${fxrpSymbol}`} privateValue /></div>
       <div className="modal__footer"><Button variant="quiet" onClick={onClose} disabled={loading}>Keep position</Button><Button variant="danger" loading={loading} onClick={() => void submit()}>Close private position</Button></div>
     </Modal>
   );

@@ -13,7 +13,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatUnits, type Address } from "viem";
 import { useReadContract } from "wagmi";
-import { ASSETS, COSTON2, POLICY } from "@quietline/protocol";
+import { ASSETS, COSTON2, POLICY, assetSymbol } from "@quietline/protocol";
 import { ConnectQuietline } from "../components/ConnectQuietline";
 import {
   AssetBadge,
@@ -30,6 +30,9 @@ import {
 import { usePrivateActions, useVaultActions } from "../hooks/usePrivateActions";
 import { useQuietline, type Position } from "../store/useQuietline";
 import { erc20Abi } from "../web3/abis";
+
+const fxrpSymbol = assetSymbol("FXRP");
+const usdt0Symbol = assetSymbol("USDT0");
 
 export function OverviewPage() {
   const mode = useQuietline((state) => state.mode);
@@ -54,15 +57,15 @@ function DisconnectedOverview() {
       : "Waiting for oracle";
   const vaultHoldings = vaultUsdt0Balance === undefined
     ? marketStatus === "unavailable" ? "Unavailable" : "Loading"
-    : `${vaultUsdt0Balance.toFixed(4)} USDT0`;
+    : `${vaultUsdt0Balance.toFixed(4)} ${usdt0Symbol}`;
   return (
     <div className="page page--overview">
       <section className="disconnected-hero">
         <div>
           <PrivacyLabel scope="compute" />
-          <h1>Private FXRP credit on Flare.</h1>
+          <h1>Private {fxrpSymbol} credit on Flare.</h1>
           <p>
-            Deposit FXRP and borrow USDT0 through lender terms that are evaluated
+            Deposit {fxrpSymbol} and borrow {usdt0Symbol} through lender terms that are evaluated
             inside Flare Confidential Compute.
           </p>
           <ConnectQuietline />
@@ -146,7 +149,7 @@ function ConnectedOverview() {
       <section className="portfolio-strip">
         <article>
           <div className="card-label"><Coins size={16} /> Collateral <PrivacyLabel scope="private" compact /></div>
-          <strong>{position ? `${position.collateral.toFixed(2)} FXRP` : "0.00 FXRP"}</strong>
+          <strong>{position ? `${position.collateral.toFixed(2)} ${fxrpSymbol}` : `0.00 ${fxrpSymbol}`}</strong>
           <span>{position && marketPriceE6 ? `$${(position.collateral * marketPrice).toFixed(2)} allocated` : "No allocated collateral"}</span>
           <button onClick={() => setDepositOpen(true)}>Add collateral <ArrowRight size={15} /></button>
         </article>
@@ -154,8 +157,8 @@ function ConnectedOverview() {
           <div className="card-label"><HandCoins size={16} /> Debt <PrivacyLabel scope="private" compact /></div>
           <strong>
             {position
-              ? `${(position.principal + position.accruedInterest).toFixed(4)} USDT0`
-              : "0.00 USDT0"}
+              ? `${(position.principal + position.accruedInterest).toFixed(4)} ${usdt0Symbol}`
+              : `0.00 ${usdt0Symbol}`}
           </strong>
           <span>{position ? `${position.apr.toFixed(2)}% APR · ${position.maturity}` : "No active credit line"}</span>
           <button onClick={() => navigate(position ? "/app/position" : "/app/borrow")}>
@@ -172,8 +175,8 @@ function ConnectedOverview() {
         </article>
         <article>
           <div className="card-label"><WalletCards size={16} /> Balance <PrivacyLabel scope="private" compact /></div>
-          <strong>{privateUsdt0.toFixed(2)} USDT0</strong>
-          <span>{privateFxrp.toFixed(2)} FXRP available</span>
+          <strong>{privateUsdt0.toFixed(2)} {usdt0Symbol}</strong>
+          <span>{privateFxrp.toFixed(2)} {fxrpSymbol} available</span>
           <button onClick={() => setDepositOpen(true)}>Deposit or withdraw <ArrowRight size={15} /></button>
         </article>
       </section>
@@ -188,9 +191,9 @@ function ConnectedOverview() {
           {position ? (
             <>
               <button className="position-row" onClick={() => navigate("/app/position")}>
-                <div><strong>FXRP / USDT0</strong><span>Fixed term credit line</span></div>
-                <span>{position.collateral.toFixed(2)} FXRP</span>
-                <span>{position.principal.toFixed(4)} USDT0</span>
+                <div><strong>{fxrpSymbol} / {usdt0Symbol}</strong><span>Fixed term credit line</span></div>
+                <span>{position.collateral.toFixed(2)} {fxrpSymbol}</span>
+                <span>{position.principal.toFixed(4)} {usdt0Symbol}</span>
                 <span>{position.apr.toFixed(2)}%</span>
                 <Status tone={positionTone}>{positionLabel}</Status>
                 <ArrowRight size={17} />
@@ -203,7 +206,7 @@ function ConnectedOverview() {
             <EmptyState
               icon={HandCoins}
               title="No active credit line"
-              body="Request a confidential quote against your available FXRP."
+              body={`Request a confidential quote against your available ${fxrpSymbol}.`}
               action={<Button onClick={() => navigate("/app/borrow")}>Request a private quote</Button>}
             />
           )}
@@ -212,7 +215,7 @@ function ConnectedOverview() {
         <section className="panel market-panel">
           <header className="panel__header"><div><span>Market context</span><h2>Public signals</h2></div><PrivacyLabel scope="public" /></header>
           <div className="market-list">
-            <div><span>Vault USDT0 holdings</span><strong>{vaultUsdt0Balance === undefined ? "Loading" : `${vaultUsdt0Balance.toFixed(4)} USDT0`}</strong></div>
+            <div><span>Vault {usdt0Symbol} holdings</span><strong>{vaultUsdt0Balance === undefined ? "Loading" : `${vaultUsdt0Balance.toFixed(4)} ${usdt0Symbol}`}</strong></div>
             <div><span>Initial / liquidation LTV</span><strong>{POLICY.initialLtvBps / 100}% / {POLICY.liquidationLtvBps / 100}%</strong></div>
             <div><span>XRP/USD</span><strong>{marketPriceE6 ? `$${(marketPriceE6 / 1_000_000).toFixed(4)}` : "Loading"}</strong></div>
             <div><span>Oracle age</span><strong>{marketUpdatedAt ? `${Math.max(0, Math.floor(Date.now() / 1000 - marketUpdatedAt))} sec` : "Loading"}</strong></div>
@@ -261,6 +264,7 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
   const walletBalance = walletBalanceQuery.data === undefined
     ? undefined
     : Number(formatUnits(walletBalanceQuery.data, ASSETS[asset].decimals));
+  const symbol = assetSymbol(asset);
   const submit = async () => {
     const numeric = Number(amount);
     if (!Number.isFinite(numeric) || numeric <= 0) {
@@ -289,13 +293,14 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
         }
         await depositLive(asset, numeric, setStage);
       }
+      await walletBalanceQuery.refetch();
       if (
         (operation === "deposit" && notifications.deposit) ||
         (operation === "withdraw" && notifications.payout)
       ) {
         push({
           tone: "success",
-          title: `${asset} ${operation === "deposit" ? "deposit credited" : "withdrawal complete"}`,
+          title: `${symbol} ${operation === "deposit" ? "deposit credited" : "withdrawal complete"}`,
           body:
             operation === "deposit"
               ? "The vault transfer and confidential credit are confirmed."
@@ -306,7 +311,7 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
     } catch (error) {
       push({
         tone: "error",
-        title: `${asset} ${operation} failed`,
+        title: `${symbol} ${operation} failed`,
         body: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -333,8 +338,8 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
       </div>
       <label className="field">
         <span>Amount</span>
-        <div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><strong>{asset}</strong></div>
-        <small>{operation === "deposit" ? `Wallet balance: ${walletBalance === undefined ? "Loading" : `${walletBalance.toFixed(4)} ${asset}`}` : `Private balance: ${available.toFixed(4)} ${asset}`}</small>
+        <div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><strong>{symbol}</strong></div>
+        <small>{operation === "deposit" ? `Wallet balance: ${walletBalance === undefined ? "Loading" : `${walletBalance.toFixed(4)} ${symbol}`}` : `Private balance: ${available.toFixed(4)} ${symbol}`}</small>
       </label>
       <div className="quick-values">
         {["25%", "50%", "Max"].map((value) => {
@@ -358,8 +363,8 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
                 : stage === "submitting"
                   ? "Submitting withdrawal request"
                   : operation === "deposit"
-                    ? `Approve and deposit ${asset}`
-                    : `Withdraw ${asset}`}
+                    ? `Approve and deposit ${symbol}`
+                    : `Withdraw ${symbol}`}
         </Button>
       </div>
     </Modal>

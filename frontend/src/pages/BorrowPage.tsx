@@ -23,8 +23,11 @@ import {
 import { usePrivateActions, useVaultActions } from "../hooks/usePrivateActions";
 import type { PrivateQuote } from "../lib/privateTypes";
 import { useQuietline } from "../store/useQuietline";
+import { assetSymbol } from "@quietline/protocol";
 
 const steps = ["Collateral", "Request", "Private quote", "Settlement"];
+const fxrpSymbol = assetSymbol("FXRP");
+const usdt0Symbol = assetSymbol("USDT0");
 
 export function BorrowPage() {
   const mode = useQuietline((state) => state.mode);
@@ -59,7 +62,7 @@ function ExistingPosition() {
       </div>
       <section className="panel existing-position">
         <Status tone={status.tone}>{status.label} credit line</Status>
-        <h2>Your FXRP / USDT0 position is already open.</h2>
+        <h2>Your {fxrpSymbol} / {usdt0Symbol} position is already open.</h2>
         <p>Inspect private risk, add collateral, or repay before requesting another line.</p>
         <Button onClick={() => navigate("/app/position")}>View position <ArrowRight size={17} /></Button>
       </section>
@@ -101,7 +104,7 @@ function BorrowWorkflow() {
 
   const requestQuote = async () => {
     if (Number(collateral) <= 0 || Number(collateral) > privateFxrp) {
-      push({ tone: "error", title: "Collateral exceeds your private FXRP balance" });
+      push({ tone: "error", title: `Collateral exceeds your private ${fxrpSymbol} balance` });
       return;
     }
     if (!marketPriceE6) {
@@ -109,7 +112,7 @@ function BorrowWorkflow() {
       return;
     }
     if (Number(amount) < 1 || Number(amount) > 5) {
-      push({ tone: "error", title: "Borrow between 1 and 5 USDT0" });
+      push({ tone: "error", title: `Borrow between 1 and 5 ${usdt0Symbol}` });
       return;
     }
     if (startingLtv > 50) {
@@ -163,7 +166,7 @@ function BorrowWorkflow() {
         push({
           tone: "success",
           title: "Private credit line active",
-          body: `${(quote.amount / 1_000_000).toFixed(2)} USDT0 has been delivered to your wallet.`,
+          body: `${(quote.amount / 1_000_000).toFixed(2)} ${usdt0Symbol} has been delivered to your wallet.`,
         });
       }
     } catch (error) {
@@ -193,7 +196,7 @@ function BorrowWorkflow() {
   return (
     <div className="page borrow-page">
       <div className="page-heading">
-        <div><span className="page-kicker">Confidential borrowing</span><h1>Borrow USDT0</h1><p>Your request is matched against lender mandates inside FCC.</p></div>
+        <div><span className="page-kicker">Confidential borrowing</span><h1>Borrow {usdt0Symbol}</h1><p>Your request is matched against lender mandates inside FCC.</p></div>
         <PrivacyLabel scope="compute" />
       </div>
       <div className="workflow-tabs" aria-label="Borrow progress">
@@ -216,19 +219,19 @@ function BorrowWorkflow() {
             <h2>Allocate private collateral</h2>
             <p>This selection stays in your browser until the encrypted quote request is signed.</p>
             <label className="field">
-              <span>FXRP to allocate</span>
-              <div className="amount-input"><input inputMode="decimal" value={collateral} onChange={(event) => setCollateral(event.target.value)} /><strong>FXRP</strong></div>
-              <small>{privateFxrp.toFixed(2)} FXRP available privately</small>
+              <span>{fxrpSymbol} to allocate</span>
+              <div className="amount-input"><input inputMode="decimal" value={collateral} onChange={(event) => setCollateral(event.target.value)} /><strong>{fxrpSymbol}</strong></div>
+              <small>{privateFxrp.toFixed(2)} {fxrpSymbol} available privately</small>
             </label>
             <div className="inline-actions">
-              <Button variant="secondary" onClick={() => setCollateral(privateFxrp.toString())}>Use all private FXRP</Button>
+              <Button variant="secondary" onClick={() => setCollateral(privateFxrp.toString())}>Use all private {fxrpSymbol}</Button>
               <Button onClick={() => setStep(1)}>Continue <ArrowRight size={17} /></Button>
             </div>
           </div>
           <aside className="workflow-aside">
             <div><span>Current XRP/USD</span><strong>{marketPriceE6 ? `$${(marketPriceE6 / 1_000_000).toFixed(4)}` : "Loading"}</strong></div>
             <div><span>Collateral value</span><strong>{marketPriceE6 ? `$${(Number(collateral || 0) * marketPriceE6 / 1_000_000).toFixed(2)}` : "Loading"}</strong></div>
-            <div><span>Maximum at 50% LTV</span><strong>{marketPriceE6 ? `${(Number(collateral || 0) * marketPriceE6 / 2_000_000).toFixed(2)} USDT0` : "Loading"}</strong></div>
+            <div><span>Maximum at 50% LTV</span><strong>{marketPriceE6 ? `${(Number(collateral || 0) * marketPriceE6 / 2_000_000).toFixed(2)} ${usdt0Symbol}` : "Loading"}</strong></div>
             <PrivacyLabel scope="private" />
           </aside>
         </section>
@@ -242,7 +245,7 @@ function BorrowWorkflow() {
             <div className="form-grid">
               <label className="field">
                 <span>Borrow amount</span>
-                <div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><strong>USDT0</strong></div>
+                <div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><strong>{usdt0Symbol}</strong></div>
               </label>
               <label className="field">
                 <span>Maximum borrower APR</span>
@@ -265,7 +268,7 @@ function BorrowWorkflow() {
           <aside className="workflow-aside">
             <HealthScale value={startingLtv} warning={50} liquidation={65} label="Starting LTV" />
             <div><span>Policy maximum</span><strong>50.0%</strong></div>
-            <div><span>Public vault holdings</span><Status tone="info">{vaultUsdt0Balance === undefined ? "Loading" : `${vaultUsdt0Balance.toFixed(4)} USDT0`}</Status></div>
+            <div><span>Public vault holdings</span><Status tone="info">{vaultUsdt0Balance === undefined ? "Loading" : `${vaultUsdt0Balance.toFixed(4)} ${usdt0Symbol}`}</Status></div>
             <div><span>Lendable balance</span><strong>Evaluated privately</strong></div>
             <div><span>Request privacy</span><strong>Encrypted</strong></div>
             <PrivacyLabel scope="compute" />
@@ -283,15 +286,15 @@ function BorrowWorkflow() {
           </header>
           <div className="quote-primary">
             <span>You receive</span>
-            <strong>{quoteAmount.toFixed(2)} USDT0</strong>
+            <strong>{quoteAmount.toFixed(2)} {usdt0Symbol}</strong>
             <small>Delivered publicly after settlement</small>
           </div>
           <HealthScale value={quoteLtv} warning={55} liquidation={65} label="Quoted LTV" />
           <div className="quote-grid">
-            <div><span>Collateral allocated</span><strong>{quoteCollateral.toFixed(2)} FXRP</strong></div>
+            <div><span>Collateral allocated</span><strong>{quoteCollateral.toFixed(2)} {fxrpSymbol}</strong></div>
             <div><span>Borrower APR</span><strong>{quoteApr.toFixed(2)}%</strong></div>
             <div><span>Term</span><strong>{quote?.termDays ?? 0} days</strong></div>
-            <div><span>Interest at maturity</span><strong>{quoteInterest.toFixed(4)} USDT0</strong></div>
+            <div><span>Interest at maturity</span><strong>{quoteInterest.toFixed(4)} {usdt0Symbol}</strong></div>
             <div><span>Starting LTV</span><strong>{quoteLtv.toFixed(1)}%</strong></div>
             <div><span>Initial liquidation XRP price</span><strong>${quoteLiquidationPrice.toFixed(4)}</strong></div>
             <div><span>Lender count</span><strong>{quote?.tranches.length ?? 0}</strong></div>
@@ -299,7 +302,7 @@ function BorrowWorkflow() {
           </div>
           <div className="quote-disclosure">
             <PrivacyLabel scope="compute" />
-            <p>The quote and lender allocation are encrypted in transit and absent from chain state. Your decrypted quote payload contains the selected tranches. Accepting creates a public request transaction and a public {quoteAmount.toFixed(4)} USDT0 payout.</p>
+            <p>The quote and lender allocation are encrypted in transit and absent from chain state. Your decrypted quote payload contains the selected tranches. Accepting creates a public request transaction and a public {quoteAmount.toFixed(4)} {usdt0Symbol} payout.</p>
           </div>
           <div className="inline-actions inline-actions--end">
             <Button variant="quiet" onClick={() => setStep(1)}>Edit request</Button>
@@ -313,7 +316,7 @@ function BorrowWorkflow() {
           <div className="settlement-panel__icon"><WalletCards size={28} /></div>
           <span className="section-kicker">Settlement</span>
           <h2>{settlementStage >= 6 ? "Your private credit line is active." : "Quietline is settling your request."}</h2>
-          <p>{settlementStage >= 6 ? `${quoteAmount.toFixed(2)} USDT0 has arrived in your wallet.` : "You can leave this screen. The relayer will continue from the durable job state."}</p>
+          <p>{settlementStage >= 6 ? `${quoteAmount.toFixed(2)} ${usdt0Symbol} has arrived in your wallet.` : "You can leave this screen. The relayer will continue from the durable job state."}</p>
           <ProgressSteps
             active={settlementStage}
             steps={[
@@ -321,8 +324,8 @@ function BorrowWorkflow() {
               "Provider authorization",
               "Private matching",
               "Private loan created",
-              "USDT0 payout signed",
-              "USDT0 delivered",
+              `${usdt0Symbol} payout signed`,
+              `${usdt0Symbol} delivered`,
             ]}
           />
           {settlementStage >= 6 ? <Button onClick={() => navigate("/app/position")}>View position <ArrowRight size={17} /></Button> : null}

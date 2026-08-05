@@ -13,6 +13,9 @@ import {
 } from "../components/ui";
 import { usePrivateActions } from "../hooks/usePrivateActions";
 import { useQuietline } from "../store/useQuietline";
+import { assetSymbol } from "@quietline/protocol";
+
+const usdt0Symbol = assetSymbol("USDT0");
 
 export function EarnPage() {
   const mode = useQuietline((state) => state.mode);
@@ -43,13 +46,13 @@ export function EarnPage() {
   return (
     <div className="page">
       <div className="page-heading">
-        <div><span className="page-kicker">Confidential liquidity</span><h1>Earn</h1><p>Offer USDT0 without publishing your rate or allocation preferences.</p></div>
+        <div><span className="page-kicker">Confidential liquidity</span><h1>Earn</h1><p>Offer {usdt0Symbol} without publishing your rate or allocation preferences.</p></div>
         <Button icon={Plus} onClick={() => setEditorOpen(true)}>Provide liquidity</Button>
       </div>
       <section className="metric-band">
-        <Metric label="Private USDT0 available" value={`${available.toFixed(2)} USDT0`} privateValue />
-        <Metric label="Allocated to mandates" value={`${allocated.toFixed(2)} USDT0`} privateValue />
-        <Metric label="Interest earned" value={`${earned.toFixed(4)} USDT0`} privateValue />
+        <Metric label={`Private ${usdt0Symbol} available`} value={`${available.toFixed(2)} ${usdt0Symbol}`} privateValue />
+        <Metric label="Allocated to mandates" value={`${allocated.toFixed(2)} ${usdt0Symbol}`} privateValue />
+        <Metric label="Interest earned" value={`${earned.toFixed(4)} ${usdt0Symbol}`} privateValue />
         <Metric label="Weighted lender APR" value={weightedAmount ? `${(weightedApr / weightedAmount / 100).toFixed(2)}%` : "--"} privateValue />
       </section>
       <section className="panel mandate-panel">
@@ -57,13 +60,13 @@ export function EarnPage() {
         {activeMandates.length ? activeMandates.map((mandate) => (
           <div className="mandate-row" key={mandate.id}>
             <div><AssetBadge asset="USDT0" /><strong>{((mandate.available + mandate.allocatedPrincipal) / 1_000_000).toFixed(2)}</strong><span>Private amount</span></div>
-            <div><strong>{(mandate.allocatedPrincipal / 1_000_000).toFixed(2)} USDT0</strong><span>Currently lent</span></div>
+            <div><strong>{(mandate.allocatedPrincipal / 1_000_000).toFixed(2)} {usdt0Symbol}</strong><span>Currently lent</span></div>
             <div><strong><LockKeyhole size={14} /> {(mandate.minAprBps / 100).toFixed(2)}%</strong><span>Minimum APR</span></div>
             <div><strong>{termsFromMask(mandate.termMask)}</strong><span>Eligible terms</span></div>
             <div><Status tone="healthy">Active</Status><span>Mandate status</span></div>
           </div>
         )) : (
-          <EmptyState icon={BadgeDollarSign} title="No active lending mandate" body="Reserve private USDT0 for deterministic matching against eligible borrowers." action={<Button onClick={() => setEditorOpen(true)}>Activate a mandate</Button>} />
+          <EmptyState icon={BadgeDollarSign} title="No active lending mandate" body={`Reserve private ${usdt0Symbol} for deterministic matching against eligible borrowers.`} action={<Button onClick={() => setEditorOpen(true)}>Activate a mandate</Button>} />
         )}
       </section>
       <section className="earn-explainer">
@@ -97,7 +100,7 @@ function MandateModal({ open, onClose }: { open: boolean; onClose: () => void })
     const numericAmount = Number(amount);
     const numericApr = Number(apr);
     if (numericAmount < 1 || numericAmount > available) {
-      push({ tone: "error", title: "Mandate amount must fit your private USDT0 balance" });
+      push({ tone: "error", title: `Mandate amount must fit your private ${usdt0Symbol} balance` });
       return;
     }
     if (numericApr < 6 || numericApr > 20) {
@@ -135,11 +138,11 @@ function MandateModal({ open, onClose }: { open: boolean; onClose: () => void })
   return (
     <Modal open={open} onClose={loading ? () => undefined : onClose} title="Activate private mandate" description="Only broad market availability is public. These terms stay confidential.">
       <div className="form-grid">
-        <label className="field"><span>Amount</span><div className="amount-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" /><strong>USDT0</strong></div><small>{available.toFixed(2)} available privately</small></label>
+        <label className="field"><span>Amount</span><div className="amount-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" /><strong>{usdt0Symbol}</strong></div><small>{available.toFixed(2)} available privately</small></label>
         <label className="field"><span>Minimum lender APR</span><div className="amount-input"><input value={apr} onChange={(event) => setApr(event.target.value)} inputMode="decimal" /><strong>%</strong></div></label>
       </div>
       <fieldset className="field"><legend>Eligible terms</legend><div className="check-grid">{[7, 14, 30].map((term) => <label key={term}><input type="checkbox" checked={terms.includes(term)} onChange={() => setTerms((current) => current.includes(term) ? current.filter((value) => value !== term) : [...current, term])} /><span>{term} days</span></label>)}</div></fieldset>
-      <label className="field"><span>Maximum per borrower</span><div className="amount-input"><input value={cap} onChange={(event) => setCap(event.target.value)} inputMode="decimal" /><strong>USDT0</strong></div></label>
+      <label className="field"><span>Maximum per borrower</span><div className="amount-input"><input value={cap} onChange={(event) => setCap(event.target.value)} inputMode="decimal" /><strong>{usdt0Symbol}</strong></div></label>
       <div className="privacy-notice"><PrivacyLabel scope="compute" /><p>The confidential engine sees these values in plaintext while evaluating matches. The relayer receives ciphertext.</p></div>
       <div className="modal__footer"><Button variant="quiet" onClick={onClose} disabled={loading}>Cancel</Button><Button loading={loading} onClick={() => void submit()}>Activate private mandate</Button></div>
     </Modal>

@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePublicClient, useSignTypedData, useWalletClient } from "wagmi";
 import {
   decodeEventLog,
@@ -7,12 +8,15 @@ import {
   type Hex,
 } from "viem";
 import {
+  getMarket,
   getAttestation,
   getConfig,
+  listJobs,
   submitDirect,
   waitForChainJob,
   waitForJob,
 } from "../lib/api";
+import { assetSymbol } from "@quietline/protocol";
 import {
   createActionDraft,
   decryptPrivateResponse,
@@ -48,6 +52,7 @@ type MutationTask<T> = () => Promise<T>;
 let mutationQueue: Promise<unknown> = Promise.resolve();
 
 export function usePrivateActions() {
+  const queryClient = useQueryClient();
   const { signTypedDataAsync } = useSignTypedData();
   const configRef = useRef<Awaited<ReturnType<typeof getConfig>>>();
   const teeKeyRef = useRef<Hex>();
@@ -55,6 +60,8 @@ export function usePrivateActions() {
   const token = useQuietline((state) => state.sessionToken);
   const hydrate = useQuietline((state) => state.hydratePrivateAccount);
   const incrementNonce = useQuietline((state) => state.incrementAccountNonce);
+  const hydrateMarket = useQuietline((state) => state.hydrateMarket);
+  const hydrateRelayerJobs = useQuietline((state) => state.hydrateRelayerJobs);
 
   const protocolContext = useCallback(async () => {
     const [config, teeKey] = await Promise.all([
@@ -149,6 +156,23 @@ export function usePrivateActions() {
     [direct, hydrate],
   );
 
+  const synchronizePublicState = useCallback(
+    async (activeToken = token) => {
+      const [marketResult, jobsResult] = await Promise.allSettled([
+        getMarket(),
+        activeToken ? listJobs(activeToken) : Promise.resolve([]),
+      ]);
+      if (marketResult.status === "fulfilled") {
+        hydrateMarket(marketResult.value);
+      }
+      if (jobsResult.status === "fulfilled") {
+        hydrateRelayerJobs(jobsResult.value);
+      }
+      await queryClient.invalidateQueries();
+    },
+    [hydrateMarket, hydrateRelayerJobs, queryClient, token],
+  );
+
   const openOrRefresh = useCallback(
     async (liveAddress: Address, liveToken: string) => {
       try {
@@ -209,9 +233,13 @@ export function usePrivateActions() {
         perBorrowerCap: toUnits(input.perBorrowerCap),
       });
       incrementNonce();
-      return refreshAccount({ nonce: useQuietline.getState().accountNonce });
+      const view = await refreshAccount({
+        nonce: useQuietline.getState().accountNonce,
+      });
+      await synchronizePublicState();
+      return view;
     }),
-    [direct, incrementNonce, refreshAccount],
+    [direct, incrementNonce, refreshAccount, synchronizePublicState],
   );
 
   const repay = useCallback(
@@ -221,9 +249,13 @@ export function usePrivateActions() {
         operationId: crypto.randomUUID(),
       });
       incrementNonce();
-      return refreshAccount({ nonce: useQuietline.getState().accountNonce });
+      const view = await refreshAccount({
+        nonce: useQuietline.getState().accountNonce,
+      });
+      await synchronizePublicState();
+      return view;
     }),
-    [direct, incrementNonce, refreshAccount],
+    [direct, incrementNonce, refreshAccount, synchronizePublicState],
   );
 
   const stress = useCallback(
@@ -244,6 +276,7 @@ export function usePrivateActions() {
     requestQuote,
     setMandate,
     stress,
+    synchronizePublicState,
   };
 }
 
@@ -252,7 +285,12 @@ export function useVaultActions() {
   const publicClient = usePublicClient();
   const sessionToken = useQuietline((state) => state.sessionToken);
   const addPublicActivity = useQuietline((state) => state.addPublicActivity);
-  const { prepare, protocolContext, refreshAccount } = usePrivateActions();
+  const {
+    prepare,
+    protocolContext,
+    refreshAccount,
+    synchronizePublicState,
+  } = usePrivateActions();
 
   const requireClients = useCallback(() => {
     if (!walletClient || !publicClient || !walletClient.account) {
@@ -305,15 +343,22 @@ export function useVaultActions() {
       );
       await waitForChainJob(requestId, clients.sessionToken);
       await refreshAccount();
+      await synchronizePublicState(clients.sessionToken);
       addPublicActivity({
-        label: `${asset} deposit`,
-        detail: `${amount.toFixed(4)} ${asset} moved to QuietVault`,
+        label: `${assetSymbol(asset)} deposit`,
+        detail: `${amount.toFixed(4)} ${assetSymbol(asset)} moved to QuietVault`,
         status: "complete",
         txHash: depositHash,
       });
       return depositHash;
     },
-    [addPublicActivity, protocolContext, refreshAccount, requireClients],
+    [
+      addPublicActivity,
+      protocolContext,
+      refreshAccount,
+      requireClients,
+      synchronizePublicState,
+    ],
   );
 
   const acceptBorrow = useCallback(
@@ -347,15 +392,23 @@ export function useVaultActions() {
       await waitForChainJob(requestId, clients.sessionToken);
       onStage?.("settling");
       await refreshAfterNonceAdvance(refreshAccount);
+      await synchronizePublicState(clients.sessionToken);
       addPublicActivity({
-        label: "USDT0 borrow payout",
-        detail: `${(quote.amount / 1_000_000).toFixed(4)} USDT0 settled from QuietVault`,
+        label: `${assetSymbol("USDT0")} borrow payout`,
+        detail: `${(quote.amount / 1_000_000).toFixed(4)} ${assetSymbol("USDT0")} settled from QuietVault`,
         status: "complete",
         txHash: requestHash,
       });
       return requestHash;
     }),
-    [addPublicActivity, prepare, protocolContext, refreshAccount, requireClients],
+    [
+      addPublicActivity,
+      prepare,
+      protocolContext,
+      refreshAccount,
+      requireClients,
+      synchronizePublicState,
+    ],
   );
 
   const withdraw = useCallback(
@@ -388,9 +441,10 @@ export function useVaultActions() {
         onStage?.("confirming");
         await waitForChainJob(requestId, clients.sessionToken);
         await refreshAfterNonceAdvance(refreshAccount);
+        await synchronizePublicState(clients.sessionToken);
         addPublicActivity({
-          label: `${asset} withdrawal`,
-          detail: `${amount.toFixed(4)} ${asset} settled to destination`,
+          label: `${assetSymbol(asset)} withdrawal`,
+          detail: `${amount.toFixed(4)} ${assetSymbol(asset)} settled to destination`,
           status: "complete",
           txHash: requestHash,
         });
@@ -402,6 +456,7 @@ export function useVaultActions() {
       protocolContext,
       refreshAccount,
       requireClients,
+      synchronizePublicState,
     ],
   );
 

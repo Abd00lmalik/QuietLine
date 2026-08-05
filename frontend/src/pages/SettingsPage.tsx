@@ -189,7 +189,7 @@ function ConnectedSettings() {
             ["maturity24h", "Maturity in 24 hours", "Show a local reminder one day before maturity."],
             ["maturity1h", "Maturity in 1 hour", "Show a local reminder one hour before maturity."],
             ["deposit", "Deposit credited", "Notify after FCC credits a confirmed vault deposit."],
-            ["payout", "Payout complete", "Notify after QuietVault transfers borrowed USDT0."],
+            ["payout", "Payout complete", "Notify after QuietVault transfers borrowed USD₮0."],
           ] as const).map(([key, label, detail]) => (
             <div key={key}>
               <div>

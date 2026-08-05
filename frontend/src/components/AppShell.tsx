@@ -41,6 +41,7 @@ export function AppShell() {
 function AppShellInner() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
+  const hasHydrated = useQuietline((state) => state.hasHydrated);
   const address = useQuietline((state) => state.address);
   const sessionExpiresAt = useQuietline((state) => state.sessionExpiresAt);
   const position = useQuietline((state) => state.position);
@@ -161,7 +162,13 @@ function AppShellInner() {
   }, [lock, push, sessionExpiresAt]);
 
   useEffect(() => {
-    if (!address) return;
+    if (!hasHydrated || !address) return;
+    if (
+      walletAccount.status === "connecting" ||
+      walletAccount.status === "reconnecting"
+    ) {
+      return;
+    }
     if (!walletAccount.isConnected || !walletAccount.address) {
       disconnect();
       return;
@@ -174,7 +181,15 @@ function AppShellInner() {
         body: "Open a new private session for the selected account.",
       });
     }
-  }, [address, disconnect, push, walletAccount.address, walletAccount.isConnected]);
+  }, [
+    address,
+    disconnect,
+    hasHydrated,
+    push,
+    walletAccount.address,
+    walletAccount.isConnected,
+    walletAccount.status,
+  ]);
 
   useEffect(() => {
     if (!position || !privateUpdatedAt) return;
@@ -236,6 +251,9 @@ function AppShellInner() {
   const marketAge = marketUpdatedAt
     ? `${Math.max(0, Math.floor(Date.now() / 1000 - marketUpdatedAt))}s`
     : "--";
+  if (!hasHydrated) {
+    return <div className="route-skeleton" aria-label="Restoring wallet session" />;
+  }
   return (
     <div className="app-frame">
       <header className="app-header">
