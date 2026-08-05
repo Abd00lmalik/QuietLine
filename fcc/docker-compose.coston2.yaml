@@ -1,10 +1,10 @@
 services:
   redis:
     image: redis:7-alpine
-    command: redis-server --save "" --appendonly no
+    command: redis-server --appendonly yes --appendfsync everysec
     restart: unless-stopped
-    tmpfs:
-      - /data
+    volumes:
+      - quietline-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -61,4 +61,5 @@ services:
       - tee-proxy
 
 volumes:
+  quietline-redis-data:
   quietline-private-state-v2:

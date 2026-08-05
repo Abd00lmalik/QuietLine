@@ -10,6 +10,41 @@ Production requires:
 - the static frontend;
 - deployed and configured Coston2 contracts.
 
+## Always-On Coston2 Host
+
+The hackathon deployment uses one Google Compute Engine VM in
+`europe-west1-b`:
+
+- project: `flowra-495207`;
+- instance: `quietline-coston2`;
+- machine: `e2-standard-4`;
+- boot disk: 50 GB balanced persistent disk;
+- public endpoint: the reserved ngrok domain already registered on-chain.
+
+Provision and deploy:
+
+```powershell
+corepack pnpm hosting:gcp:provision
+corepack pnpm hosting:gcp:deploy
+corepack pnpm hosting:gcp:cutover
+```
+
+The deploy command transfers the three ignored environment files directly to
+the VM and builds the pinned images while the local stack remains live. The
+cutover command freezes local writes, transfers the real encrypted ledger and
+relayer database volumes, starts the remote stack, registers its fresh TEE,
+retires the previous machine, and requires the public `/api/health` endpoint
+to return `ok`. Secret files are installed with mode `0600` and are never
+added to the deployment archive.
+
+Redis uses append-only persistence, the extension uses
+`quietline-private-state-v2`, and the relayer uses
+`quietline-relayer-data`. Do not delete these Docker volumes.
+
+Moving the extension workload to a new host creates a fresh simulated TEE
+identity. The cutover command handles registration, QuietVault verification,
+and stale-machine retirement in that order.
+
 ## Relayer Lifecycle
 
 Build and start:

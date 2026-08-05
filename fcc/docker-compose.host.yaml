@@ -1,0 +1,12 @@
+services:
+  relayer:
+    build:
+      context: ..
+      dockerfile: relayer/Dockerfile
+    image: quietline-relayer:v0.1.0
+
+  public-gateway:
+    ports: !reset []
+
+  tee-proxy:
+    ports: !reset []
