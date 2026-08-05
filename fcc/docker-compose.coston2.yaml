@@ -15,7 +15,7 @@ services:
     build:
       context: ./proxy
       args:
-        TEE_PROXY_REF: 0c6d016b09948cba9a508ba357e592eb6088fd1c
+        TEE_PROXY_REF: d9c2c0ff5f07ed8895823d9485f08bec375bb842
     restart: unless-stopped
     environment:
       PROXY_PRIVATE_KEY: ${PROXY_PRIVATE_KEY:?PROXY_PRIVATE_KEY is required}

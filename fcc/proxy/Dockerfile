@@ -1,4 +1,4 @@
-ARG TEE_PROXY_REF=0c6d016b09948cba9a508ba357e592eb6088fd1c
+ARG TEE_PROXY_REF=d9c2c0ff5f07ed8895823d9485f08bec375bb842
 FROM golang:1.25.8-alpine AS build
 
 RUN apk add --no-cache git
