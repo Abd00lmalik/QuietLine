@@ -34,20 +34,62 @@ const common = {
     SIMULATED_TEE: "true",
   },
 };
-run("go", [
+
+const sleep = (milliseconds) =>
+  new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+
+async function waitForStableProxy() {
+  let consecutiveSuccesses = 0;
+  let lastError;
+  for (let attempt = 1; attempt <= 30; attempt += 1) {
+    try {
+      const response = await fetch(`${proxyUrl}/info`, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error(`proxy returned ${response.status}`);
+      await response.arrayBuffer();
+      consecutiveSuccesses += 1;
+      if (consecutiveSuccesses >= 3) return;
+    } catch (error) {
+      consecutiveSuccesses = 0;
+      lastError = error;
+    }
+    await sleep(2_000);
+  }
+  throw new Error(`FCC proxy did not stabilize: ${lastError}`);
+}
+
+async function runWithRetry(label, command, args, options = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      return run(command, args, options);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 4) break;
+      console.warn(`${label} failed on attempt ${attempt}; retrying in 10 seconds.`);
+      await sleep(10_000);
+      await waitForStableProxy();
+    }
+  }
+  throw lastError;
+}
+
+await waitForStableProxy();
+await runWithRetry("allow TEE version", "go", [
   "run", "./cmd/allow-tee-version",
   "-a", addresses,
   "-c", rootEnv.COSTON2_RPC_URL,
   "-p", proxyUrl,
   "-version", "quietline-v0.1.0",
 ], common);
-run("go", [
+await runWithRetry("set governance", "go", [
   "run", "./cmd/set-governance",
   "-a", addresses,
   "-c", rootEnv.COSTON2_RPC_URL,
   "-p", proxyUrl,
 ], common);
-run("go", [
+await runWithRetry("register TEE", "go", [
   "run", "./cmd/register-tee",
   "-a", addresses,
   "-c", rootEnv.COSTON2_RPC_URL,
@@ -57,7 +99,16 @@ run("go", [
   "-state", resolve(root, ".cache", "register-tee.state"),
   "-command", "rRap",
 ], common);
-run("corepack", ["pnpm", "--filter", "@quietline/contracts", "configure:coston2"], {
+await runWithRetry(
+  "configure QuietVault",
+  "corepack",
+  ["pnpm", "--filter", "@quietline/contracts", "configure:coston2"],
+  {
   env: { FCC_PROXY_URL: proxyUrl, SIMULATED_TEE: "true" },
-});
-run("corepack", ["pnpm", "--filter", "@quietline/contracts", "verify:coston2"]);
+  },
+);
+await runWithRetry(
+  "verify QuietVault",
+  "corepack",
+  ["pnpm", "--filter", "@quietline/contracts", "verify:coston2"],
+);
