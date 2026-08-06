@@ -164,7 +164,21 @@ sudo docker compose \
 
   Write-Output "Quietline cutover completed and the previous TEE was retired."
 } catch {
-  Write-Warning "Cutover failed. The local services will be restarted."
+  Write-Warning "Cutover failed. Stopping the remote tunnel before restarting local services."
+  $rollbackRemote = @'
+set -e
+if [ -d /opt/quietline ]; then
+  cd /opt/quietline
+  sudo docker compose \
+    --env-file .env \
+    --env-file fcc/.env.coston2 \
+    -f fcc/docker-compose.coston2.yaml \
+    -f fcc/docker-compose.ngrok.yaml \
+    -f fcc/docker-compose.host.yaml \
+    stop ngrok-fcc public-gateway extension-tee tee-proxy redis relayer || true
+fi
+'@
+  & ssh @ssh "${User}@${HostName}" $rollbackRemote
   docker compose --env-file .env --env-file fcc/.env.coston2 @composeFiles up -d
   throw
 } finally {

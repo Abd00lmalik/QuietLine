@@ -60,7 +60,7 @@ sudo tar -xf /tmp/quietline.tar -C /opt/quietline
 sudo install -m 0600 /tmp/root.env /opt/quietline/.env
 sudo install -m 0600 /tmp/fcc.env /opt/quietline/fcc/.env.coston2
 sudo install -d -m 0750 /opt/quietline/fcc/generated
-sudo install -m 0600 /tmp/proxy.toml /opt/quietline/fcc/generated/proxy.coston2.toml
+sudo install -m 0640 -o root -g 1001 /tmp/proxy.toml /opt/quietline/fcc/generated/proxy.coston2.toml
 sudo install -m 0600 /tmp/relayer.env /opt/quietline/relayer/.env
 cd /opt/quietline
 sudo docker compose \
