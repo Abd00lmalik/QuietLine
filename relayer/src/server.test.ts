@@ -151,4 +151,52 @@ describe("public configuration", () => {
     );
     await app.close();
   });
+
+  it("reports a healthy FCC path only when the live and vault signers match", async () => {
+    const signer = "0x3333333333333333333333333333333333333333";
+    const app = buildServer({
+      config,
+      store,
+      auth: {} as never,
+      fcc: { machineSigner: async () => signer } as never,
+      orchestrator: {} as never,
+      chain: { activeTeeSigner: async () => signer } as never,
+    });
+
+    const response = await app.inject({ method: "GET", url: "/health" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      status: "ok",
+      services: { fcc: "ok" },
+    });
+    await app.close();
+  });
+
+  it("pauses confidential mutations when the live FCC signer changed", async () => {
+    const app = buildServer({
+      config,
+      store,
+      auth: {} as never,
+      fcc: {
+        machineSigner: async () =>
+          "0x3333333333333333333333333333333333333333",
+      } as never,
+      orchestrator: {} as never,
+      chain: {
+        activeTeeSigner: async () =>
+          "0x4444444444444444444444444444444444444444",
+      } as never,
+    });
+
+    const response = await app.inject({ method: "GET", url: "/health" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      status: "degraded",
+      services: { fcc: "signer_mismatch" },
+    });
+    expect(response.json().detail).toContain("signer mismatch");
+    await app.close();
+  });
 });
