@@ -26,8 +26,7 @@ New-Item -ItemType Directory -Path $staging | Out-Null
 Push-Location $root
 try {
   $health = Invoke-RestMethod `
-    -Uri "https://speculate-ipod-harmful.ngrok-free.dev/api/health" `
-    -Headers @{ "ngrok-skip-browser-warning" = "quietline" }
+    -Uri "http://127.0.0.1:8080/api/health"
   if ($health.status -ne "ok") {
     throw "Local Quietline health check is not healthy before cutover."
   }
