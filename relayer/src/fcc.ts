@@ -1,4 +1,5 @@
 import { hexToString, stringToHex, type Hex } from "viem";
+import { publicKeyToAddress } from "viem/accounts";
 
 export type SubmissionTag = "submit" | "threshold" | "end";
 export type ActionResponse = {
@@ -17,6 +18,25 @@ export class FccClient {
     const response = await fetch(`${this.baseUrl}/info`);
     if (!response.ok) throw new Error(`FCC info returned ${response.status}`);
     return response.json();
+  }
+
+  async machineSigner() {
+    const info = (await this.info()) as {
+      teeInfo?: { publicKey?: { x?: string; y?: string } };
+      machineData?: { publicKey?: { x?: string; y?: string } };
+    };
+    const key = info.machineData?.publicKey ?? info.teeInfo?.publicKey;
+    if (
+      !key?.x ||
+      !key.y ||
+      !/^0x[0-9a-fA-F]{64}$/u.test(key.x) ||
+      !/^0x[0-9a-fA-F]{64}$/u.test(key.y)
+    ) {
+      throw new Error("FCC /info did not include a valid secp256k1 public key");
+    }
+    return publicKeyToAddress(
+      `0x04${key.x.slice(2)}${key.y.slice(2)}` as Hex,
+    );
   }
 
   submitCiphertext(command: string, ciphertext: Hex) {
@@ -53,21 +73,23 @@ export class FccClient {
   async poll(
     actionId: Hex,
     tag: SubmissionTag = "submit",
-    attempts = 20,
+    timeoutMs = 300_000,
   ): Promise<ActionResponse> {
-    for (let attempt = 0; attempt < attempts; attempt++) {
+    const deadline = Date.now() + timeoutMs;
+    let attempt = 0;
+    while (Date.now() < deadline) {
       const response = await fetch(
         `${this.baseUrl}/action/result/${actionId}?submissionTag=${tag}`,
       );
       if (response.ok) {
         const body = (await response.json()) as ActionResponse;
         if (body.result.status === 2) {
-          await delay(Math.min(150 * 2 ** attempt, 2_000));
+          await delay(Math.min(250 * 1.5 ** attempt++, 3_000));
           continue;
         }
         return body;
       }
-      await delay(Math.min(150 * 2 ** attempt, 2_000));
+      await delay(Math.min(250 * 1.5 ** attempt++, 3_000));
     }
     throw new Error(`timed out waiting for FCC action ${actionId}`);
   }

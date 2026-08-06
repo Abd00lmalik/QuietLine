@@ -155,7 +155,7 @@ if (borrowerKey) {
     10_000_000,
   );
   if (collateral < 1_000_000) {
-    throw new Error("Borrower confidential account has no FTestXRP available for quote verification");
+    throw new Error("Borrower confidential account has no FXRP available for quote verification");
   }
   const quote = await direct(
     borrower,

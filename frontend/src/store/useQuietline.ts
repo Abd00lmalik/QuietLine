@@ -59,7 +59,7 @@ type QuietlineState = {
     services: {
       api: "ok" | "unavailable";
       database: "ok" | "unavailable";
-      fcc: "ok" | "unavailable";
+      fcc: "ok" | "unavailable" | "signer_mismatch";
     };
     timestamp: string;
   };

@@ -34,7 +34,7 @@ const faqs = [
   {
     question: "What assets does the hackathon release support?",
     answer:
-      "The committed Coston2 market is FTestXRP collateral against USD₮0 liquidity, with 7, 14, and 30 day fixed terms.",
+      "The committed Coston2 market is FXRP collateral against USD₮0 liquidity, with 7, 14, and 30 day fixed terms.",
   },
   {
     question: "Is this ready for production funds?",
@@ -113,7 +113,7 @@ export function LandingPage() {
               <h1>Quietline</h1>
               <p className="hero__tagline">Private credit, settled on Flare.</p>
               <p className="hero__body">
-                Borrow USD₮0 against FTestXRP without publishing your lender terms, debt,
+                Borrow USD₮0 against FXRP without publishing your lender terms, debt,
                 health, or liquidation calculations to the market.
               </p>
               <div className="hero__actions">
@@ -141,7 +141,7 @@ export function LandingPage() {
               <div className="hero-ledger__top">
                 <div>
                   <span className="hero-ledger__brand">Private credit account</span>
-                  <strong>FTestXRP / USD₮0</strong>
+                  <strong>FXRP / USD₮0</strong>
                 </div>
                 <Status tone="healthy">Confidential</Status>
               </div>
@@ -272,7 +272,7 @@ export function LandingPage() {
                   </div>
                 </header>
                 <ul>
-                  <li><ChevronRight size={15} /> Internal FTestXRP and USD₮0 balances</li>
+                  <li><ChevronRight size={15} /> Internal FXRP and USD₮0 balances</li>
                   <li><ChevronRight size={15} /> Lender mandates before and after matching</li>
                   <li><ChevronRight size={15} /> Debt, APR, health, and liquidation price</li>
                   <li><ChevronRight size={15} /> Private activity and stress results</li>
@@ -333,7 +333,7 @@ export function LandingPage() {
             <div>
               <span>Quietline on Coston2</span>
               <h2>Run private credit on Coston2.</h2>
-              <p>Connect a funded wallet, deposit FTestXRP, receive a live lender quote, borrow USD₮0, stress the position, and repay.</p>
+              <p>Connect a funded wallet, deposit FXRP, receive a live lender quote, borrow USD₮0, stress the position, and repay.</p>
             </div>
             <Link className="button button--primary button--large" to="/app">
               Open the application <ArrowRight size={18} />

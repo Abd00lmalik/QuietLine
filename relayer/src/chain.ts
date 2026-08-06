@@ -44,6 +44,7 @@ const abi = parseAbi([
   "function usedSettlementId(bytes32 settlementId) view returns (bool)",
   "function stateSequence() view returns (uint64)",
   "function stateRoot() view returns (bytes32)",
+  "function activeTeeSigner() view returns (address)",
   "function currentXrpUsdPrice() view returns (uint64 priceE6,uint64 priceTimestamp)",
   "function requestRiskTick() payable returns (bytes32 requestId)",
 ]);
@@ -151,6 +152,14 @@ export class ChainClient {
       }),
     ]);
     return { sequence: Number(sequence), root };
+  }
+
+  async activeTeeSigner() {
+    return this.publicClient.readContract({
+      address: this.cfg.QUIET_VAULT as Address,
+      abi,
+      functionName: "activeTeeSigner",
+    });
   }
 
   async market() {

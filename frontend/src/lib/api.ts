@@ -56,7 +56,7 @@ export async function getConfig() {
       faucetUrl: string;
     };
     assets: {
-      FXRP: { symbol: "FTestXRP"; address: Address; decimals: number };
+      FXRP: { symbol: "FXRP"; address: Address; decimals: number };
       USDT0: { symbol: "USD₮0"; address: Address; decimals: number };
     };
     policy: {
@@ -86,8 +86,9 @@ export async function getHealth() {
     services: {
       api: "ok";
       database: "ok";
-      fcc: "ok" | "unavailable";
+      fcc: "ok" | "unavailable" | "signer_mismatch";
     };
+    detail?: string;
     network: string;
     timestamp: string;
   }>("/health");
@@ -143,7 +144,7 @@ export async function listJobs(token: string) {
   return request<RelayerJob[]>("/jobs", { token });
 }
 
-export async function waitForJob(id: string, token: string, timeoutMs = 90_000) {
+export async function waitForJob(id: string, token: string, timeoutMs = 360_000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const job = await getJob(id, token);
@@ -157,7 +158,7 @@ export async function waitForJob(id: string, token: string, timeoutMs = 90_000) 
 export async function waitForChainJob(
   requestId: Hex,
   token: string,
-  timeoutMs = 120_000,
+  timeoutMs = 360_000,
 ) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {

@@ -10,7 +10,7 @@ export const COSTON2 = {
 
 export const ASSETS = {
   FXRP: {
-    symbol: "FTestXRP",
+    symbol: "FXRP",
     address: "0x0b6A3645c240605887a5532109323A3E12273dc7",
     decimals: 6,
   },

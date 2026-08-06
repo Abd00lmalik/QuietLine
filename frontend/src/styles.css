@@ -2951,23 +2951,11 @@ summary {
   white-space: nowrap;
 }
 
-.asset-badge > span {
+.asset-badge > img {
   width: 22px;
   height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: white;
-  font-size: 10px;
-}
-
-.asset-badge--fxrp > span {
-  background: #232a27;
-}
-
-.asset-badge--usdt0 > span {
-  background: var(--teal);
+  display: block;
+  flex: 0 0 22px;
 }
 
 .health-scale {

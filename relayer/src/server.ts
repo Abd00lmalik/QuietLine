@@ -49,6 +49,8 @@ type Dependencies = {
   chain: import("./chain.js").ChainClient;
 };
 
+class FccReadinessError extends Error {}
+
 export function buildServer(deps: Dependencies): FastifyInstance {
   const app = Fastify({
     logger: {
@@ -84,7 +86,13 @@ export function buildServer(deps: Dependencies): FastifyInstance {
   app.setErrorHandler((error, request, reply) => {
     const message = error instanceof Error ? error.message : String(error);
     const statusCode =
-      error instanceof z.ZodError ? 400 : message.includes("session") ? 401 : 500;
+      error instanceof z.ZodError
+        ? 400
+        : error instanceof FccReadinessError
+          ? 503
+          : message.includes("session")
+            ? 401
+            : 500;
     if (statusCode === 500) {
       request.log.error({ error }, "request failed");
     }
@@ -95,15 +103,18 @@ export function buildServer(deps: Dependencies): FastifyInstance {
   });
 
   app.get("/health", async () => {
-    let fcc: "ok" | "unavailable" = "ok";
+    let fcc: "ok" | "unavailable" | "signer_mismatch" = "ok";
+    let detail: string | undefined;
     try {
-      await deps.fcc.info();
-    } catch {
-      fcc = "unavailable";
+      await assertFccReady(deps);
+    } catch (error) {
+      detail = error instanceof Error ? error.message : String(error);
+      fcc = error instanceof FccReadinessError ? "signer_mismatch" : "unavailable";
     }
     return {
       status: fcc === "ok" ? "ok" : "degraded",
       services: { api: "ok", database: "ok", fcc },
+      ...(detail ? { detail } : {}),
       network: COSTON2.name,
       timestamp: new Date().toISOString(),
     };
@@ -167,6 +178,7 @@ export function buildServer(deps: Dependencies): FastifyInstance {
       `/direct/${route}`,
       { preHandler: authenticated(deps.auth) },
       async (request, reply) => {
+        await assertFccReady(deps);
         const session = sessionFor(request);
         const body = directSchema.parse(request.body);
         if (body.account.toLowerCase() !== session.sub) {
@@ -244,6 +256,18 @@ export function buildServer(deps: Dependencies): FastifyInstance {
   });
 
   return app;
+}
+
+async function assertFccReady(deps: Pick<Dependencies, "fcc" | "chain">) {
+  const [machineSigner, activeSigner] = await Promise.all([
+    deps.fcc.machineSigner(),
+    deps.chain.activeTeeSigner(),
+  ]);
+  if (machineSigner.toLowerCase() !== activeSigner.toLowerCase()) {
+    throw new FccReadinessError(
+      "FCC signer mismatch. Confidential mutations are paused until the active machine is registered.",
+    );
+  }
 }
 
 function authenticated(auth: Auth) {

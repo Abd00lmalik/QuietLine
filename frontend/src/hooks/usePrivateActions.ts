@@ -1,16 +1,12 @@
 import { useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePublicClient, useSignTypedData, useWalletClient } from "wagmi";
-import {
-  decodeEventLog,
-  parseUnits,
-  type Address,
-  type Hex,
-} from "viem";
+import { parseUnits, type Address, type Hex } from "viem";
 import {
   getMarket,
   getAttestation,
   getConfig,
+  getHealth,
   listJobs,
   submitDirect,
   waitForChainJob,
@@ -30,6 +26,7 @@ import type {
   PrivateQuote,
   PrivateStressView,
 } from "../lib/privateTypes";
+import { requestIdFromReceipt } from "../lib/receipts";
 import { useQuietline } from "../store/useQuietline";
 import { erc20Abi, quietVaultAbi } from "../web3/abis";
 
@@ -305,6 +302,16 @@ export function useVaultActions() {
     };
   }, [publicClient, sessionToken, walletClient]);
 
+  const assertLiveFcc = useCallback(async () => {
+    const health = await getHealth();
+    if (health.services.fcc !== "ok") {
+      throw new Error(
+        health.detail ??
+          "Confidential compute is not ready. No token transaction was submitted.",
+      );
+    }
+  }, []);
+
   const deposit = useCallback(
     async (
       asset: "FXRP" | "USDT0",
@@ -312,6 +319,7 @@ export function useVaultActions() {
       onStage?: (stage: "approving" | "depositing" | "confirming") => void,
     ) => {
       const clients = requireClients();
+      await assertLiveFcc();
       const { config } = await protocolContext();
       const tokenAddress = config.assets[asset].address;
       const units = parseUnits(String(amount), config.assets[asset].decimals);
@@ -335,10 +343,12 @@ export function useVaultActions() {
         args: [tokenAddress, units],
         value: instructionFee,
       });
-      await clients.publicClient.waitForTransactionReceipt({ hash: depositHash });
+      const depositReceipt =
+        await clients.publicClient.waitForTransactionReceipt({ hash: depositHash });
       onStage?.("confirming");
       const requestId = requestIdFromReceipt(
-        await clients.publicClient.getTransactionReceipt({ hash: depositHash }),
+        depositReceipt,
+        config.vault,
         "DepositSubmitted",
       );
       await waitForChainJob(requestId, clients.sessionToken);
@@ -354,6 +364,7 @@ export function useVaultActions() {
     },
     [
       addPublicActivity,
+      assertLiveFcc,
       protocolContext,
       refreshAccount,
       requireClients,
@@ -367,6 +378,7 @@ export function useVaultActions() {
       onStage?: (stage: "signing" | "submitting" | "computing" | "settling") => void,
     ) => serializeMutation(async () => {
       const clients = requireClients();
+      await assertLiveFcc();
       const { config } = await protocolContext();
       onStage?.("signing");
       const prepared = await prepare("BORROW_ACCEPT", {
@@ -383,10 +395,12 @@ export function useVaultActions() {
         args: [prepared.ciphertext],
         value: instructionFee,
       });
-      await clients.publicClient.waitForTransactionReceipt({ hash: requestHash });
+      const requestReceipt =
+        await clients.publicClient.waitForTransactionReceipt({ hash: requestHash });
       onStage?.("computing");
       const requestId = requestIdFromReceipt(
-        await clients.publicClient.getTransactionReceipt({ hash: requestHash }),
+        requestReceipt,
+        config.vault,
         "ConfidentialRequestSubmitted",
       );
       await waitForChainJob(requestId, clients.sessionToken);
@@ -403,6 +417,7 @@ export function useVaultActions() {
     }),
     [
       addPublicActivity,
+      assertLiveFcc,
       prepare,
       protocolContext,
       refreshAccount,
@@ -420,6 +435,7 @@ export function useVaultActions() {
     ) => {
       return serializeMutation(async () => {
         const clients = requireClients();
+        await assertLiveFcc();
         const { config } = await protocolContext();
         const tokenAddress = config.assets[asset].address;
         const units = parseUnits(String(amount), config.assets[asset].decimals);
@@ -433,9 +449,11 @@ export function useVaultActions() {
           args: [tokenAddress, units, destination],
           value: instructionFee,
         });
-        await clients.publicClient.waitForTransactionReceipt({ hash: requestHash });
+        const requestReceipt =
+          await clients.publicClient.waitForTransactionReceipt({ hash: requestHash });
         const requestId = requestIdFromReceipt(
-          await clients.publicClient.getTransactionReceipt({ hash: requestHash }),
+          requestReceipt,
+          config.vault,
           "ConfidentialRequestSubmitted",
         );
         onStage?.("confirming");
@@ -453,6 +471,7 @@ export function useVaultActions() {
     },
     [
       addPublicActivity,
+      assertLiveFcc,
       protocolContext,
       refreshAccount,
       requireClients,
@@ -505,26 +524,4 @@ function serializeMutation<T>(task: MutationTask<T>) {
     () => undefined,
   );
   return next;
-}
-
-function requestIdFromReceipt(
-  receipt: Awaited<ReturnType<NonNullable<ReturnType<typeof usePublicClient>>["getTransactionReceipt"]>>,
-  eventName: "DepositSubmitted" | "ConfidentialRequestSubmitted",
-) {
-  for (const log of receipt.logs) {
-    try {
-      const decoded = decodeEventLog({
-        abi: quietVaultAbi,
-        data: log.data,
-        topics: log.topics,
-        eventName,
-      });
-      if (decoded.eventName === eventName && decoded.args.requestId) {
-        return decoded.args.requestId as Hex;
-      }
-    } catch {
-      // Ignore unrelated logs from the same transaction.
-    }
-  }
-  throw new Error(`${eventName} event did not include a request id`);
 }
