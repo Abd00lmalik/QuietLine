@@ -3,13 +3,16 @@
 **Private credit, settled on Flare.**
 
 Quietline is a live-only Coston2 confidential credit market. Borrowers deposit
-certified FXRP and borrow certified testUSDT0 against lender mandates evaluated
+certified FTestXRP and borrow certified USD₮0 against lender mandates evaluated
 inside Flare Confidential Compute. Debt, terms, lender allocation, health, and
 liquidation remain in the confidential ledger. Deposits, payouts, withdrawals,
 addresses, and timing remain public.
 
-There is no demo mode, simulated action path, mock token path, or fake market
-data in the deployed application.
+There is no mock action path, mock token path, or fake market data in the
+deployed application. The FCC workload uses Flare's official Coston2
+`SIMULATED_TEE=true`, `MODE=1` judging configuration; contracts, assets,
+instructions, registrations, settlements, and oracle reads are real Coston2
+integrations.
 
 ## Repository
 
@@ -18,13 +21,13 @@ data in the deployed application.
 - `relayer`: authenticated API, durable job orchestration, indexer, and keeper.
 - `frontend`: landing page and lending application.
 - `packages/protocol`: shared Coston2 constants and schemas.
-- `fcc`: real Confidential Space and tee-proxy deployment package.
+- `fcc`: Coston2 FCC extension, tee-proxy, Redis, gateway, and host package.
 - `docs`: architecture, security, operations, deployment, and judge runbooks.
 
 ## Fixed Coston2 Assets
 
-- FXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
-- testUSDT0: `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F`
+- FTestXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
+- USD₮0: `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F`
 - FTSOv2: `0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d`
 - FlareTeeManager: `0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`
 
@@ -45,9 +48,10 @@ used by the frontend, relayer, FCC release image, or Coston2 deployment scripts.
 ## Deployment
 
 Start with [Coston2 deployment](docs/DEPLOYMENT_COSTON2.md). A real deployment
-requires funded wallets, FCC registration access, a Coston2 indexer database,
-and GCP Confidential Space. The process stops rather than falling back to
-simulated attestation or placeholder addresses.
+requires funded wallets, the public Coston2 FCC manager, the Coston2 indexer
+database, and a persistent x86-64 Docker host. The hackathon deployment uses
+the official simulated-TEE judging mode and stops rather than falling back to
+placeholder addresses, fake tokens, or a mock confidential service.
 
 ### Vercel Frontend
 

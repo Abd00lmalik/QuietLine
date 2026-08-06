@@ -1,7 +1,7 @@
 # Quietline Architecture
 
 Quietline is an omnibus-vault credit market on Coston2. Public contracts hold
-certified FXRP and testUSDT0. Flare Confidential Compute (FCC) maintains the
+certified FTestXRP and USD₮0. Flare Confidential Compute (FCC) maintains the
 private ledger, matches lender mandates, calculates debt and risk, and signs
 sequential state settlements.
 
@@ -19,7 +19,7 @@ React application ---> Fastify relayer/indexer ---> FCC tee-proxy
     v                         v                         |
 Coston2 QuietVault <---- TEE-signed settlement <-------+
     |
-    +--> certified FXRP / testUSDT0 custody
+    +--> certified FTestXRP / USD₮0 custody
     +--> FTSOv2 XRP/USD observation
     +--> FCC instruction dispatch through FlareTeeManager
 ```
@@ -30,12 +30,12 @@ Coston2 QuietVault <---- TEE-signed settlement <-------+
 
 `QuietVault` is the custody and settlement boundary. It:
 
-- accepts exact-transfer FXRP and testUSDT0 deposits;
+- accepts exact-transfer FTestXRP and USD₮0 deposits;
 - emits FCC instructions for deposits, borrowing, withdrawals, risk ticks, and
   backstop funding;
 - reads the XRP/USD FTSOv2 feed and rejects observations older than five minutes;
 - executes only sequential settlements signed by the bound TEE key;
-- enforces a 5 testUSDT0 payout cap and 8 testUSDT0 daily borrow outflow cap;
+- enforces a 5 USD₮0 payout cap and 8 USD₮0 daily borrow outflow cap;
 - permits user withdrawals while borrow payouts are paused;
 - binds its FCC extension ID and TEE signer only once.
 
@@ -47,7 +47,7 @@ terms, or liquidation status.
 The Go extension receives both chain instructions and authenticated direct
 actions. It owns the authoritative private state:
 
-- internal FXRP and testUSDT0 balances;
+- internal FTestXRP and USD₮0 balances;
 - lender mandates and allocations;
 - loan principal, accrued interest, tranches, maturity, health, and status;
 - protocol reserve and liquidation backstop accounting;
@@ -105,20 +105,20 @@ The quote request is a direct encrypted FCC action. FCC obtains a fresh FTSOv2
 price from QuietVault, matches eligible private mandates, and returns an
 encrypted quote. Acceptance is encrypted again and sent through
 `QuietVault.requestBorrow`. FCC rechecks price, collateral, nonce, quote expiry,
-and mandate availability before signing the testUSDT0 payout.
+and mandate availability before signing the USD₮0 payout.
 
 ### Repay
 
-Repayment uses testUSDT0 already deposited into QuietVault. FCC allocates
+Repayment uses USD₮0 already deposited into QuietVault. FCC allocates
 principal and lender interest privately, credits the protocol spread, releases
-FXRP collateral, and anchors a zero-value checkpoint. The current hackathon
+FTestXRP collateral, and anchors a zero-value checkpoint. The current hackathon
 release supports full close only.
 
 ### Liquidation
 
 The keeper requests a fresh FTSOv2 observation. FCC accrues interest and updates
 all active loans. A liquidatable loan closes automatically when the private
-backstop has enough testUSDT0. Lenders receive principal and earned interest,
+backstop has enough USD₮0. Lenders receive principal and earned interest,
 the protocol receives its spread, collateral is seized at the configured
 discount, and the remaining collateral returns to the borrower. No liquidation
 event identifies the borrower.
@@ -131,4 +131,4 @@ event identifies the borrower.
 - Quotes reserve no liquidity and are revalidated at acceptance.
 - Lender principal and interest are conserved on repayment and liquidation.
 - On-chain payouts cannot exceed policy caps.
-- Only certified Coston2 FXRP and testUSDT0 are supported.
+- Only certified Coston2 FTestXRP and USD₮0 are supported.

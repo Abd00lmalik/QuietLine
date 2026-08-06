@@ -4,7 +4,7 @@
 
 Production requires:
 
-- a real Confidential Space extension workload;
+- a registered FCC extension workload;
 - tee-proxy v0.0.21, Redis, and a reachable Coston2 indexer database;
 - the Fastify relayer/indexer with persistent SQLite storage;
 - the static frontend;
@@ -12,13 +12,12 @@ Production requires:
 
 ## Always-On Coston2 Host
 
-The hackathon deployment uses one Google Compute Engine VM in
-`europe-west1-b`:
+The hackathon deployment uses one Tencent Cloud Lighthouse VM in Frankfurt:
 
-- project: `flowra-495207`;
-- instance: `quietline-coston2`;
-- machine: `e2-standard-4`;
-- boot disk: 50 GB balanced persistent disk;
+- public IP: `43.157.63.199`;
+- machine: 2 vCPU, 4 GB RAM, and 2 GB swap;
+- boot disk: 60 GB SSD;
+- operating system: Ubuntu 24.04 x86-64 with Docker;
 - public endpoint: the reserved ngrok domain already registered on-chain.
 
 Provision and deploy:
@@ -38,13 +37,19 @@ machine, verifies it, pauses the previous machine, and only then starts the
 remote relayer. If cutover fails before completion, the local stack is
 restarted automatically.
 
+The Coston2 deployment uses a 30-minute background risk-tick interval. Borrow
+and quote actions still read the current FTSO price directly. Keep at least
+`2 C2FLR` in the relayer wallet; the preflight check reports `waiting` below
+that operational floor.
+
 The deploy command transfers the three ignored environment files directly to
 the VM and builds the pinned images while the local stack remains live. The
 cutover command freezes local writes, transfers the real encrypted ledger and
 relayer database volumes, starts the remote stack, registers its fresh TEE,
 retires the previous machine, and requires the public `/api/health` endpoint
-to return `ok`. Secret files are installed with mode `0600` and are never
-added to the deployment archive.
+to return `ok`. Secret environment files are installed with mode `0600`; the
+proxy config is mode `0640` for its non-root container group. None are added
+to the deployment archive.
 
 Redis uses append-only persistence, the extension uses
 `quietline-private-state-v2`, and the relayer uses
@@ -117,15 +122,15 @@ and deploy a new vault/extension. This is a known hackathon limitation.
 
 ## Keeper
 
-The keeper submits `requestRiskTick()` every 60 seconds by default. It prevents
-overlapping ticks in one process. Run only one keeper-enabled relayer instance
-for the hackathon release. Each tick consumes C2FLR gas and the FCC instruction
-fee.
+The code default is 60 seconds, while the live Coston2 deployment uses
+30 minutes because a measured tick costs roughly `0.141 C2FLR` at the current
+testnet gas price. The keeper runs once immediately after startup and prevents
+overlapping ticks in one process. Run only one keeper-enabled relayer instance.
+Each tick consumes C2FLR gas and the FCC instruction fee.
 
 ## Backstop
 
-The protocol operator funds the real private backstop with certified
-testUSDT0:
+The protocol operator funds the real private backstop with certified USD₮0:
 
 ```powershell
 corepack pnpm --filter @quietline/contracts fund-backstop:coston2

@@ -11,6 +11,10 @@ const rootEnv = parseEnv(resolve(root, ".env"));
 const relayerEnv = parseEnv(resolve(root, "relayer", ".env"));
 const fccEnv = parseEnv(resolve(root, "fcc", ".env.coston2"));
 const checks = [];
+const minimumWalletBalances = {
+  "Deployer C2FLR": 1_000_000_000_000_000_000n,
+  "Relayer C2FLR": 2_000_000_000_000_000_000n,
+};
 
 async function rpc(method, params = []) {
   const response = await fetch(rootEnv.COSTON2_RPC_URL, {
@@ -68,12 +72,10 @@ if (
     ["Deployer C2FLR", deployer],
     ["Relayer C2FLR", relayer],
   ]) {
+    const balance = BigInt(await rpc("eth_getBalance", [address, "latest"]));
     checks.push({
-      name,
-      status:
-        BigInt(await rpc("eth_getBalance", [address, "latest"])) > 0n
-          ? "ready"
-          : "waiting",
+      name: `${name} (>= ${minimumWalletBalances[name] / 10n ** 18n})`,
+      status: balance >= minimumWalletBalances[name] ? "ready" : "waiting",
     });
   }
 }

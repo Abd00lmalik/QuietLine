@@ -10,8 +10,8 @@ mock tokens, stale FCC contracts, rotating quick-tunnel URLs, or zero addresses.
 - RPC: `https://coston2-api.flare.network/ext/C/rpc`
 - FlareTeeManager: `0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`
 - FTSOv2: `0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d`
-- certified FXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
-- certified testUSDT0: `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F`
+- certified FTestXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
+- certified USD₮0: `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F`
 - XRP/USD feed ID: `0x015852502f55534400000000000000000000000000`
 
 ## Manual Prerequisites
@@ -31,11 +31,11 @@ Use only the official Flare faucet:
 The faucet currently offers each address, once per 24 hours:
 
 - `100 C2FLR` for transaction fees;
-- `10 FXRP` at the certified FXRP address listed above;
-- `10 USDT0` at the certified testUSDT0 address listed above.
+- `10 FTestXRP` at the certified FTestXRP address listed above;
+- `10 USD₮0` at the certified USD₮0 address listed above.
 
 Fund the deployer and relayer addresses with C2FLR. Fund the demo borrower with
-C2FLR and FXRP. Fund the lender/backstop operator with C2FLR and USDT0. The
+C2FLR and FTestXRP. Fund the lender/backstop operator with C2FLR and USD₮0. The
 faucet submission requires its reCAPTCHA, so an operator must paste each
 address, select the required assets, complete the challenge, and submit it.
 No bridge or local mint is used.
@@ -205,7 +205,7 @@ Do not open the app to judges unless:
   public extension values;
 - `/info` reports chain 114, the same extension ID and key, `TEST_PLATFORM`,
   the official simulated code hash, and `magic_pass`;
-- QuietVault `activeTeeSigner`, `extensionId`, FXRP, and testUSDT0 match the
+- QuietVault `activeTeeSigner`, `extensionId`, FTestXRP, and USD₮0 match the
   manifest;
 - relayer `/health` is `ok`;
 - FTSOv2 price is fresh;

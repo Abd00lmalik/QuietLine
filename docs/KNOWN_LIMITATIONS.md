@@ -2,12 +2,12 @@
 
 The August 2, 2026 hackathon release intentionally has these limits:
 
-- one real Confidential Space TEE;
+- one officially registered Coston2 simulated TEE;
 - one relayer and one keeper process;
 - one active loan per private account;
 - full repayment only;
 - fixed 7, 14, and 30 day terms;
-- FXRP collateral and testUSDT0 debt only;
+- FTestXRP collateral and USD₮0 debt only;
 - deterministic protocol backstop instead of an auction;
 - immutable TEE settlement signer;
 - no backstop withdrawal;
@@ -32,4 +32,6 @@ Operational limitations:
 - losing the state-encryption key makes private state unrecoverable;
 - relayer downtime pauses settlement completion;
 - only one keeper-enabled relayer instance should run;
-- FCC and GCP registration require manual credentials and external approval.
+- the official Coston2 simulated-TEE mode does not provide hardware-backed
+  production confidentiality;
+- the reserved ngrok domain remains an external availability dependency.
