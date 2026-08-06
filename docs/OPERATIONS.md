@@ -23,11 +23,20 @@ The hackathon deployment uses one Google Compute Engine VM in
 
 Provision and deploy:
 
+The production FCC stack runs on a persistent x86-64 Ubuntu Docker host. For a
+provider-neutral SSH deployment:
+
 ```powershell
-corepack pnpm hosting:gcp:provision
-corepack pnpm hosting:gcp:deploy
-corepack pnpm hosting:gcp:cutover
+corepack pnpm hosting:ssh:provision -- -HostName <server-ip>
+corepack pnpm hosting:ssh:deploy -- -HostName <server-ip>
+corepack pnpm hosting:ssh:cutover -- -HostName <server-ip>
 ```
+
+The SSH cutover exports the confidential TEE state and relayer database, starts
+the remote proxy and TEE behind the reserved ngrok domain, registers a fresh
+machine, verifies it, pauses the previous machine, and only then starts the
+remote relayer. If cutover fails before completion, the local stack is
+restarted automatically.
 
 The deploy command transfers the three ignored environment files directly to
 the VM and builds the pinned images while the local stack remains live. The
