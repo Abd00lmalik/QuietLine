@@ -9,12 +9,16 @@ import {
   RelayerConfigurationError,
   verifyChallenge,
 } from "../lib/api";
-import { usePrivateActions } from "../hooks/usePrivateActions";
+import {
+  usePrivateActions,
+  type PrivateSessionStage,
+} from "../hooks/usePrivateActions";
 import { useQuietline } from "../store/useQuietline";
 import { Button, useToast } from "./ui";
 
 export function ConnectQuietline({ compact = false }: { compact?: boolean }) {
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<string>();
   const account = useAccount();
   const { connectors, connectAsync } = useConnect();
   const { signTypedDataAsync } = useSignTypedData();
@@ -52,13 +56,16 @@ export function ConnectQuietline({ compact = false }: { compact?: boolean }) {
     }
     setLoading(true);
     try {
+      setStep(account.isConnected ? "Using connected wallet" : "Requesting wallet access");
       const connection = account.isConnected && account.address
         ? { accounts: [account.address], chainId: account.chainId }
         : await connectAsync({ connector: connector! });
       if (connection.chainId !== COSTON2.id) {
+        setStep("Switching wallet to Coston2");
         await switchChainAsync({ chainId: COSTON2.id });
       }
       const address = connection.accounts[0] as Address;
+      setStep("Sign the 30-minute session challenge");
       const challenge = await getChallenge(address);
       const signature = await signTypedDataAsync({
         domain: challenge.typedData.domain as never,
@@ -78,7 +85,9 @@ export function ConnectQuietline({ compact = false }: { compact?: boolean }) {
         signature: signature as Hex,
       });
       connectLive(address, session.token, Date.now() + session.expiresIn * 1000);
-      await openOrRefresh(address, session.token);
+      await openOrRefresh(address, session.token, (stage) =>
+        setStep(privateSessionStep(stage)),
+      );
       push({
         tone: "success",
         title: "Private session opened",
@@ -92,6 +101,7 @@ export function ConnectQuietline({ compact = false }: { compact?: boolean }) {
       });
     } finally {
       setLoading(false);
+      setStep(undefined);
     }
   };
 
@@ -103,8 +113,17 @@ export function ConnectQuietline({ compact = false }: { compact?: boolean }) {
         disabled={relayerUnavailable}
         onClick={() => void connect()}
       >
-        {relayerUnavailable ? "Live service unavailable" : "Connect Coston2 wallet"}
+        {relayerUnavailable
+          ? "Live service unavailable"
+          : loading
+            ? step ?? "Opening private session"
+            : "Connect Coston2 wallet"}
       </Button>
+      {loading && step ? (
+        <small className="connect-actions__notice" aria-live="polite">
+          {step}. MetaMask signatures authorize Quietline actions; they do not move tokens.
+        </small>
+      ) : null}
       {relayerUnavailable && !compact ? (
         <small className="connect-actions__notice">
           Wallet connection opens when the relayer and FCC path are online.
@@ -112,6 +131,12 @@ export function ConnectQuietline({ compact = false }: { compact?: boolean }) {
       ) : null}
     </div>
   );
+}
+
+function privateSessionStep(stage: PrivateSessionStage) {
+  if (stage === "checking-account") return "Sign to decrypt your private account";
+  if (stage === "creating-account") return "Sign to create your private account";
+  return "Sign once more to decrypt the new account";
 }
 
 function connectionErrorMessage(error: unknown) {

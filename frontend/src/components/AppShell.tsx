@@ -170,8 +170,11 @@ function AppShellInner() {
       return;
     }
     if (!walletAccount.isConnected || !walletAccount.address) {
-      disconnect();
-      return;
+      const timer = window.setTimeout(() => {
+        const current = useQuietline.getState();
+        if (current.address === address) disconnect();
+      }, 2_000);
+      return () => window.clearTimeout(timer);
     }
     if (walletAccount.address.toLowerCase() !== address.toLowerCase()) {
       disconnect();

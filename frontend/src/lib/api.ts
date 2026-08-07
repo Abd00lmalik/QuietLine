@@ -89,6 +89,10 @@ export async function getHealth() {
       fcc: "ok" | "unavailable" | "signer_mismatch";
     };
     detail?: string;
+    fccMachine: {
+      activeCount: number;
+      activeSigners: Address[];
+    };
     network: string;
     timestamp: string;
   }>("/health");

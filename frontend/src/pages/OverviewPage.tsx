@@ -358,7 +358,7 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
               ? "Submitting vault deposit"
               : stage === "confirming"
                 ? operation === "deposit"
-                  ? "Confirming private credit"
+                  ? "Vault confirmed; waiting for FCC"
                   : "Confirming settlement"
                 : stage === "submitting"
                   ? "Submitting withdrawal request"
@@ -367,6 +367,13 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
                     : `Withdraw ${symbol}`}
         </Button>
       </div>
+      {stage === "confirming" && operation === "deposit" ? (
+        <p className="modal-progress-note" role="status">
+          Your token transfer is confirmed on Coston2. Keep this window open while
+          Quietline verifies the confidential ledger credit. Do not submit a second
+          deposit.
+        </p>
+      ) : null}
     </Modal>
   );
 }

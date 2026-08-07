@@ -34,7 +34,7 @@ const faqs = [
   {
     question: "What assets does the hackathon release support?",
     answer:
-      "The committed Coston2 market is FXRP collateral against USD₮0 liquidity, with 7, 14, and 30 day fixed terms.",
+      "The Coston2 release supports FXRP and USD₮0. Borrowers use FXRP collateral to access 1–5 USD₮0 fixed-term credit; lenders privately allocate USD₮0.",
   },
   {
     question: "Is this ready for production funds?",
@@ -113,8 +113,9 @@ export function LandingPage() {
               <h1>Quietline</h1>
               <p className="hero__tagline">Private credit, settled on Flare.</p>
               <p className="hero__body">
-                Borrow USD₮0 against FXRP without publishing your lender terms, debt,
-                health, or liquidation calculations to the market.
+                Deposit FXRP, match against private USD₮0 lender mandates, and manage
+                one fixed-term credit line without publishing its APR, debt, health,
+                or stress calculations.
               </p>
               <div className="hero__actions">
                 <Link className="button button--primary button--large" to="/app">
@@ -126,7 +127,7 @@ export function LandingPage() {
               </div>
               <div className="hero__facts" aria-label="Protocol facts">
                 <span>
-                  <strong>50%</strong> initial LTV
+                  <strong>1–5 USD₮0</strong> testnet credit
                 </span>
                 <span>
                   <strong>7 / 14 / 30</strong> day terms
@@ -203,25 +204,26 @@ export function LandingPage() {
             </div>
             <div>
               <Network size={19} />
-              <span>Native FCC instruction flow</span>
+              <span>Private lender matching</span>
             </div>
             <div>
               <FileCheck2 size={19} />
-              <span>Root-anchored private accounting</span>
+              <span>Sequential root-anchored accounting</span>
             </div>
             <div>
               <Gauge size={19} />
-              <span>FTSOv2 risk observations</span>
+              <span>Automated FTSOv2 risk keeper</span>
             </div>
           </section>
 
           <section id="product" className="landing-section product-section">
             <div className="section-heading">
               <span>Private market, public settlement</span>
-              <h2>Credit decisions happen away from the public mempool.</h2>
+              <h2>A complete fixed-term market with an explicit privacy boundary.</h2>
               <p>
-                Quietline separates what the chain must enforce from what the market
-                does not need to know.
+                Borrowing, lending, repayment, stress testing, and risk monitoring
+                share one confidential ledger while token custody remains verifiable
+                on Coston2.
               </p>
             </div>
             <div className="feature-grid">
@@ -229,25 +231,27 @@ export function LandingPage() {
                 <div className="feature-icon"><CircleDollarSign size={22} /></div>
                 <h3>Confidential lender mandates</h3>
                 <p>
-                  Lenders define amount, minimum APR, term eligibility, and borrower
-                  caps inside FCC. Those mandates and match details are not published
-                  on-chain.
+                  Lenders privately define liquidity, minimum APR, eligible 7, 14, or
+                  30 day terms, and per-borrower caps. FCC returns a borrower-specific
+                  quote without revealing the mandate book.
                 </p>
               </article>
               <article>
                 <div className="feature-icon"><Gauge size={22} /></div>
                 <h3>Private risk computation</h3>
                 <p>
-                  Debt accrual, LTV, health, warning state, stress checks, and
-                  liquidation calculations stay in the confidential ledger.
+                  FTSOv2 observations feed private debt accrual, LTV, health warnings,
+                  liquidation eligibility, and user-selected stress scenarios. An
+                  automated keeper requests ongoing checks.
                 </p>
               </article>
               <article>
                 <div className="feature-icon"><Blocks size={22} /></div>
                 <h3>Constrained vault settlement</h3>
                 <p>
-                  QuietVault only executes fresh, sequential, TEE-signed payouts and
-                  withdrawals under hard token and amount caps.
+                  QuietVault holds FXRP and USD₮0 publicly, then executes only fresh,
+                  sequential, TEE-signed borrow payouts and withdrawals. Repayment is
+                  full-close in this testnet release.
                 </p>
               </article>
             </div>
@@ -333,7 +337,7 @@ export function LandingPage() {
             <div>
               <span>Quietline on Coston2</span>
               <h2>Run private credit on Coston2.</h2>
-              <p>Connect a funded wallet, deposit FXRP, receive a live lender quote, borrow USD₮0, stress the position, and repay.</p>
+              <p>Connect a funded wallet, create a private lender mandate or deposit FXRP, request a 1–5 USD₮0 quote, inspect private risk, and close the position with one repayment.</p>
             </div>
             <Link className="button button--primary button--large" to="/app">
               Open the application <ArrowRight size={18} />

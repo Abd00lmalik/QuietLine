@@ -1473,6 +1473,13 @@ summary:focus-visible {
   border-top: 1px solid var(--border);
 }
 
+.modal-progress-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
 .segmented {
   display: flex;
   min-height: 44px;

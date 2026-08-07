@@ -46,6 +46,10 @@ const directRoutes = {
 
 type DirectAction = keyof typeof directRoutes;
 type MutationTask<T> = () => Promise<T>;
+export type PrivateSessionStage =
+  | "checking-account"
+  | "creating-account"
+  | "decrypting-account";
 let mutationQueue: Promise<unknown> = Promise.resolve();
 
 export function usePrivateActions() {
@@ -171,8 +175,13 @@ export function usePrivateActions() {
   );
 
   const openOrRefresh = useCallback(
-    async (liveAddress: Address, liveToken: string) => {
+    async (
+      liveAddress: Address,
+      liveToken: string,
+      onStage?: (stage: PrivateSessionStage) => void,
+    ) => {
       try {
+        onStage?.("checking-account");
         return await refreshAccount({
           address: liveAddress,
           token: liveToken,
@@ -181,12 +190,14 @@ export function usePrivateActions() {
       } catch (error) {
         if (!messageFor(error).includes("private account does not exist")) throw error;
       }
+      onStage?.("creating-account");
       await direct<void>(
         "OPEN_ACCOUNT",
         { operationId: crypto.randomUUID() },
         { address: liveAddress, token: liveToken, nonce: 0 },
       );
       incrementNonce();
+      onStage?.("decrypting-account");
       return refreshAccount({
         address: liveAddress,
         token: liveToken,
@@ -351,7 +362,20 @@ export function useVaultActions() {
         config.vault,
         "DepositSubmitted",
       );
-      await waitForChainJob(requestId, clients.sessionToken);
+      try {
+        await waitForChainJob(requestId, clients.sessionToken);
+      } catch (error) {
+        await synchronizePublicState(clients.sessionToken);
+        addPublicActivity({
+          label: `${assetSymbol(asset)} deposit awaiting private credit`,
+          detail: `${amount.toFixed(4)} ${assetSymbol(asset)} is in QuietVault, but FCC processing did not complete. Do not submit the deposit again.`,
+          status: "warning",
+          txHash: depositHash,
+        });
+        throw new Error(
+          `QuietVault custody is confirmed in transaction ${depositHash}, but private credit did not complete: ${messageFor(error)}. Do not deposit again.`,
+        );
+      }
       await refreshAccount();
       await synchronizePublicState(clients.sessionToken);
       addPublicActivity({
