@@ -1,8 +1,9 @@
 import { resolve } from "node:path";
-import { computeAddress } from "ethers";
+import { Contract, JsonRpcProvider, computeAddress, getAddress } from "ethers";
 import {
   isPlaceholder,
   parseEnv,
+  readJson,
   root,
   run,
 } from "./lib.mjs";
@@ -10,6 +11,7 @@ import {
 const rootEnv = parseEnv(resolve(root, ".env"));
 const relayerEnv = parseEnv(resolve(root, "relayer", ".env"));
 const fccEnv = parseEnv(resolve(root, "fcc", ".env.coston2"));
+const deployment = readJson(resolve(root, "deployments", "coston2.json"));
 const checks = [];
 const minimumWalletBalances = {
   "Deployer C2FLR": 1_000_000_000_000_000_000n,
@@ -86,6 +88,35 @@ checks.push({
       ? "ready"
       : "failed",
 });
+if (
+  Number.isSafeInteger(deployment.extensionId) &&
+  deployment.extensionId >= 65_536 &&
+  /^0x[0-9a-fA-F]{40}$/u.test(deployment.teeSigner)
+) {
+  const provider = new JsonRpcProvider(
+    rootEnv.COSTON2_RPC_URL,
+    { chainId: 114, name: "coston2" },
+    { staticNetwork: true },
+  );
+  const manager = new Contract(
+    deployment.infrastructure.flareTeeManager,
+    [
+      "function getActiveTeeMachines(uint256 extensionId) view returns (address[])",
+    ],
+    provider,
+  );
+  const active = (
+    await manager.getActiveTeeMachines(deployment.extensionId)
+  ).map(getAddress);
+  checks.push({
+    name: "Exactly one active FCC machine",
+    status:
+      active.length === 1 &&
+      active[0] === getAddress(deployment.teeSigner)
+        ? "ready"
+        : "failed",
+  });
+}
 try {
   run("docker", ["info"], { capture: true });
   checks.push({ name: "Docker engine", status: "ready" });

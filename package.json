@@ -26,6 +26,7 @@
     "coston2:register-extension": "node scripts/coston2/register-extension.mjs",
     "coston2:register-machine": "node scripts/coston2/register-machine.mjs",
     "coston2:pause-stale-machine": "node scripts/coston2/pause-stale-machine.mjs",
+    "coston2:retire-stale-machines": "node scripts/coston2/retire-stale-machines.mjs",
     "hosting:gcp:provision": "powershell -ExecutionPolicy Bypass -File scripts/hosting/gcp-provision.ps1",
     "hosting:gcp:deploy": "powershell -ExecutionPolicy Bypass -File scripts/hosting/gcp-deploy.ps1",
     "hosting:gcp:cutover": "powershell -ExecutionPolicy Bypass -File scripts/hosting/gcp-cutover.ps1",

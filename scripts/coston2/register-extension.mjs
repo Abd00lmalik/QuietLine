@@ -72,6 +72,8 @@ writeEnv(fccEnvPath, {
 writeEnv(relayerEnvPath, {
   ...relayerEnv,
   QUIET_VAULT: vault,
+  TEE_MANAGER: deployment.infrastructure.flareTeeManager,
+  EXTENSION_ID: String(deployment.extensionId),
   START_BLOCK: String(deployment.startBlock),
 }, "Quietline Coston2 relayer");
 run("corepack", ["pnpm", "--filter", "@quietline/contracts", "set-extension:coston2"]);

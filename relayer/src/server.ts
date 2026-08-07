@@ -111,9 +111,14 @@ export function buildServer(deps: Dependencies): FastifyInstance {
       detail = error instanceof Error ? error.message : String(error);
       fcc = error instanceof FccReadinessError ? "signer_mismatch" : "unavailable";
     }
+    const machineState = await deps.chain.fccMachineState().catch(() => undefined);
     return {
       status: fcc === "ok" ? "ok" : "degraded",
       services: { api: "ok", database: "ok", fcc },
+      fccMachine: {
+        activeCount: machineState?.active.length ?? 0,
+        activeSigners: machineState?.active.map((machine) => machine.teeId) ?? [],
+      },
       ...(detail ? { detail } : {}),
       network: COSTON2.name,
       timestamp: new Date().toISOString(),
@@ -259,13 +264,23 @@ export function buildServer(deps: Dependencies): FastifyInstance {
 }
 
 async function assertFccReady(deps: Pick<Dependencies, "fcc" | "chain">) {
-  const [machineSigner, activeSigner] = await Promise.all([
+  const [machineSigner, activeSigner, machineState] = await Promise.all([
     deps.fcc.machineSigner(),
     deps.chain.activeTeeSigner(),
+    deps.chain.fccMachineState(),
   ]);
   if (machineSigner.toLowerCase() !== activeSigner.toLowerCase()) {
     throw new FccReadinessError(
       "FCC signer mismatch. Confidential mutations are paused until the active machine is registered.",
+    );
+  }
+  const active = machineState.active.filter((machine) => machine.status === 2);
+  if (
+    active.length !== 1 ||
+    active[0]?.teeId.toLowerCase() !== activeSigner.toLowerCase()
+  ) {
+    throw new FccReadinessError(
+      `FCC registry must contain exactly one production machine for this extension; found ${active.length}.`,
     );
   }
 }

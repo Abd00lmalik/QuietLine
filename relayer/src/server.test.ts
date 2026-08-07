@@ -17,6 +17,8 @@ const config: Config = {
   DIRECT_API_KEY: "direct-api-key-that-is-at-least-32-bytes",
   COSTON2_RPC_URL: "https://coston2-api.flare.network/ext/C/rpc",
   QUIET_VAULT: vault,
+  TEE_MANAGER: "0x5555555555555555555555555555555555555555",
+  EXTENSION_ID: 65_536,
   RELAYER_PRIVATE_KEY: `0x${"11".repeat(32)}`,
   START_BLOCK: 1n,
   POLL_INTERVAL_MS: 2_000,
@@ -160,7 +162,12 @@ describe("public configuration", () => {
       auth: {} as never,
       fcc: { machineSigner: async () => signer } as never,
       orchestrator: {} as never,
-      chain: { activeTeeSigner: async () => signer } as never,
+      chain: {
+        activeTeeSigner: async () => signer,
+        fccMachineState: async () => ({
+          active: [{ teeId: signer, status: 2 }],
+        }),
+      } as never,
     });
 
     const response = await app.inject({ method: "GET", url: "/health" });
@@ -186,6 +193,12 @@ describe("public configuration", () => {
       chain: {
         activeTeeSigner: async () =>
           "0x4444444444444444444444444444444444444444",
+        fccMachineState: async () => ({
+          active: [{
+            teeId: "0x4444444444444444444444444444444444444444",
+            status: 2,
+          }],
+        }),
       } as never,
     });
 
@@ -197,6 +210,39 @@ describe("public configuration", () => {
       services: { fcc: "signer_mismatch" },
     });
     expect(response.json().detail).toContain("signer mismatch");
+    await app.close();
+  });
+
+  it("pauses confidential mutations when duplicate production machines exist", async () => {
+    const signer = "0x3333333333333333333333333333333333333333";
+    const app = buildServer({
+      config,
+      store,
+      auth: {} as never,
+      fcc: { machineSigner: async () => signer } as never,
+      orchestrator: {} as never,
+      chain: {
+        activeTeeSigner: async () => signer,
+        fccMachineState: async () => ({
+          active: [
+            { teeId: signer, status: 2 },
+            {
+              teeId: "0x4444444444444444444444444444444444444444",
+              status: 2,
+            },
+          ],
+        }),
+      } as never,
+    });
+
+    const response = await app.inject({ method: "GET", url: "/health" });
+
+    expect(response.json()).toMatchObject({
+      status: "degraded",
+      services: { fcc: "signer_mismatch" },
+      fccMachine: { activeCount: 2 },
+    });
+    expect(response.json().detail).toContain("exactly one production machine");
     await app.close();
   });
 });

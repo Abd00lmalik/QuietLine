@@ -10,6 +10,8 @@ const envSchema = z.object({
   DIRECT_API_KEY: z.string().min(32),
   COSTON2_RPC_URL: z.string().url().default("https://coston2-api.flare.network/ext/C/rpc"),
   QUIET_VAULT: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+  TEE_MANAGER: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+  EXTENSION_ID: z.coerce.number().int().min(65_536),
   RELAYER_PRIVATE_KEY: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
   START_BLOCK: z.coerce.bigint(),
   POLL_INTERVAL_MS: z.coerce.number().int().min(250).default(2_000),

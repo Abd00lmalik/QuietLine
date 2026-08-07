@@ -112,3 +112,6 @@ await runWithRetry(
   "corepack",
   ["pnpm", "--filter", "@quietline/contracts", "verify:coston2"],
 );
+run("node", [
+  resolve(root, "scripts", "coston2", "retire-stale-machines.mjs"),
+]);

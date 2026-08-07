@@ -49,6 +49,10 @@ const abi = parseAbi([
   "function requestRiskTick() payable returns (bytes32 requestId)",
 ]);
 const erc20Abi = parseAbi(["function balanceOf(address owner) view returns (uint256)"]);
+const teeManagerAbi = parseAbi([
+  "function getActiveTeeMachines(uint256 extensionId) view returns (address[])",
+  "function getTeeMachineStatus(address teeId) view returns (uint8)",
+]);
 const depositEvent = parseAbiItem(
   "event DepositSubmitted(bytes32 indexed depositId,address indexed account,address indexed token,uint256 amount,bytes32 requestId)",
 );
@@ -160,6 +164,31 @@ export class ChainClient {
       abi,
       functionName: "activeTeeSigner",
     });
+  }
+
+  async fccMachineState() {
+    const active = await this.publicClient.readContract({
+      address: this.cfg.TEE_MANAGER as Address,
+      abi: teeManagerAbi,
+      functionName: "getActiveTeeMachines",
+      args: [BigInt(this.cfg.EXTENSION_ID)],
+    });
+    const statuses = await Promise.all(
+      active.map((teeId) =>
+        this.publicClient.readContract({
+          address: this.cfg.TEE_MANAGER as Address,
+          abi: teeManagerAbi,
+          functionName: "getTeeMachineStatus",
+          args: [teeId],
+        }),
+      ),
+    );
+    return {
+      active: active.map((teeId, index) => ({
+        teeId,
+        status: Number(statuses[index]),
+      })),
+    };
   }
 
   async market() {
