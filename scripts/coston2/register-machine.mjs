@@ -1,9 +1,11 @@
 import { resolve } from "node:path";
 import {
   parseEnv,
+  readJson,
   requireValue,
   root,
   run,
+  writeEnv,
 } from "./lib.mjs";
 
 run("node", [resolve(root, "scripts", "coston2", "sync-fcc-tooling.mjs")]);
@@ -112,6 +114,13 @@ await runWithRetry(
   "corepack",
   ["pnpm", "--filter", "@quietline/contracts", "verify:coston2"],
 );
+const deployment = readJson(resolve(root, "deployments", "coston2.json"));
+const relayerEnvPath = resolve(root, "relayer", ".env");
+writeEnv(relayerEnvPath, {
+  ...parseEnv(relayerEnvPath),
+  TEE_MANAGER: deployment.infrastructure.flareTeeManager,
+  EXTENSION_ID: String(deployment.extensionId),
+}, "Quietline Coston2 relayer");
 run("node", [
   resolve(root, "scripts", "coston2", "retire-stale-machines.mjs"),
 ]);
