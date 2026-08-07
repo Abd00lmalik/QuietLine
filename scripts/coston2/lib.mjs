@@ -14,6 +14,24 @@ export function coston2DeploymentPath() {
   );
 }
 
+export function deploymentProfilePaths() {
+  const profile = process.env.QUIETLINE_PROFILE ?? "v2";
+  if (profile !== "v1" && profile !== "v2") {
+    throw new Error("QUIETLINE_PROFILE must be v1 or v2");
+  }
+  return profile === "v2"
+    ? {
+        rootEnv: resolve(root, ".env.v2"),
+        relayerEnv: resolve(root, "relayer", ".env.v2"),
+        fccEnv: resolve(root, "fcc", ".env.coston2-v2"),
+      }
+    : {
+        rootEnv: resolve(root, ".env"),
+        relayerEnv: resolve(root, "relayer", ".env"),
+        fccEnv: resolve(root, "fcc", ".env.coston2"),
+      };
+}
+
 export function parseEnv(path) {
   if (!existsSync(path)) return {};
   return Object.fromEntries(

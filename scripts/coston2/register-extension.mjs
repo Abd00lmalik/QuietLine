@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { computeAddress } from "ethers";
 import {
   coston2DeploymentPath,
+  deploymentProfilePaths,
   parseEnv,
   readJson,
   requireValue,
@@ -14,10 +15,11 @@ import {
 
 run("node", [resolve(root, "scripts", "coston2", "sync-fcc-tooling.mjs")]);
 
-const rootEnv = parseEnv(resolve(root, ".env"));
-const fccEnvPath = resolve(root, "fcc", ".env.coston2");
+const profilePaths = deploymentProfilePaths();
+const rootEnv = parseEnv(profilePaths.rootEnv);
+const fccEnvPath = profilePaths.fccEnv;
 const fccEnv = parseEnv(fccEnvPath);
-const relayerEnvPath = resolve(root, "relayer", ".env");
+const relayerEnvPath = profilePaths.relayerEnv;
 const relayerEnv = parseEnv(relayerEnvPath);
 const privateKey = requireValue(
   rootEnv,

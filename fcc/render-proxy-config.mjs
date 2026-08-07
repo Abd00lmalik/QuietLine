@@ -57,7 +57,11 @@ if (/\{\{[A-Z0-9_]+\}\}/u.test(output)) {
   throw new Error("proxy config contains unresolved template variables");
 }
 
-const target = resolve(root, "generated", "proxy.coston2.toml");
+const target = resolve(
+  root,
+  "generated",
+  process.env.FCC_PROXY_CONFIG_NAME ?? "proxy.coston2.toml",
+);
 mkdirSync(dirname(target), { recursive: true });
 writeFileSync(target, output, { encoding: "utf8", mode: 0o600 });
 console.log(target);

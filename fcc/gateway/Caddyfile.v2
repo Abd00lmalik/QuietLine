@@ -1,0 +1,11 @@
+{$V2_PUBLIC_DOMAIN} {
+	encode zstd gzip
+
+	handle_path /api/* {
+		reverse_proxy relayer:8787
+	}
+
+	handle {
+		reverse_proxy tee-proxy:6664
+	}
+}

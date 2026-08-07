@@ -1,0 +1,54 @@
+services:
+  redis:
+    volumes:
+      - quietline-v2-redis-data:/data
+
+  tee-proxy:
+    volumes:
+      - ./generated/proxy.coston2-v2.toml:/app/config/config.toml:ro
+    ports: !reset []
+
+  extension-tee:
+    volumes:
+      - quietline-v2-private-state:/data
+
+  relayer:
+    build:
+      context: ..
+      dockerfile: relayer/Dockerfile
+    image: quietline-relayer:v2
+    restart: unless-stopped
+    env_file:
+      - ../relayer/.env.v2
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_PATH: /data/relayer-v2.db
+      FCC_PROXY_URL: http://tee-proxy:6664
+    volumes:
+      - quietline-v2-relayer-data:/data
+    depends_on:
+      - tee-proxy
+
+  caddy-v2:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      V2_PUBLIC_DOMAIN: ${V2_PUBLIC_DOMAIN:?V2_PUBLIC_DOMAIN is required}
+    volumes:
+      - ./gateway/Caddyfile.v2:/etc/caddy/Caddyfile:ro
+      - quietline-v2-caddy-data:/data
+      - quietline-v2-caddy-config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    depends_on:
+      - relayer
+      - tee-proxy
+
+volumes:
+  quietline-v2-redis-data:
+  quietline-v2-private-state:
+  quietline-v2-relayer-data:
+  quietline-v2-caddy-data:
+  quietline-v2-caddy-config:

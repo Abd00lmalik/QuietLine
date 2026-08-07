@@ -1,0 +1,19 @@
+{
+  "network": "coston2",
+  "chainId": 114,
+  "protocolVersion": 2,
+  "quietPolicy": "0x28E7965D7b1c4d1f7CB5837dAd691123dec72694",
+  "quietVault": "0x1C53d0188bA554A23242A2822daBaB802698D511",
+  "extensionId": 66008,
+  "teeSigner": "0x0000000000000000000000000000000000000000",
+  "codeHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "startBlock": 33741558,
+  "infrastructure": {
+    "flareTeeManager": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
+    "ftsoV2": "0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d"
+  },
+  "assets": {
+    "fxrp": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+    "usdt0": "0xC1A5B41512496B80903D1f32d6dEa3a73212E71F"
+  }
+}

@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import {
   coston2DeploymentPath,
+  deploymentProfilePaths,
   parseEnv,
   readJson,
   requireValue,
@@ -10,8 +11,9 @@ import {
 } from "./lib.mjs";
 
 run("node", [resolve(root, "scripts", "coston2", "sync-fcc-tooling.mjs")]);
-const rootEnv = parseEnv(resolve(root, ".env"));
-const fccEnv = parseEnv(resolve(root, "fcc", ".env.coston2"));
+const profilePaths = deploymentProfilePaths();
+const rootEnv = parseEnv(profilePaths.rootEnv);
+const fccEnv = parseEnv(profilePaths.fccEnv);
 const privateKey = requireValue(
   rootEnv,
   "DEPLOYER_PRIVATE_KEY",
@@ -116,7 +118,7 @@ await runWithRetry(
   ["pnpm", "--filter", "@quietline/contracts", "verify:coston2"],
 );
 const deployment = readJson(coston2DeploymentPath());
-const relayerEnvPath = resolve(root, "relayer", ".env");
+const relayerEnvPath = profilePaths.relayerEnv;
 writeEnv(relayerEnvPath, {
   ...parseEnv(relayerEnvPath),
   TEE_MANAGER: deployment.infrastructure.flareTeeManager,
