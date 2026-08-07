@@ -12,7 +12,7 @@ async function main() {
     throw new Error("RELAYER_PRIVATE_KEY is required in relayer/.env");
   }
 
-  const deployment = readDeployment("coston2");
+  const deployment = readDeployment("coston2-v2");
   const vault = await ethers.getContractAt("QuietVault", deployment.quietVault);
   const relayer = new Wallet(privateKey).address;
   const operatorRole = await vault.OPERATOR_ROLE();

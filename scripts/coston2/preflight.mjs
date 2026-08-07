@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { Contract, JsonRpcProvider, computeAddress, getAddress } from "ethers";
 import {
+  coston2DeploymentPath,
   isPlaceholder,
   parseEnv,
   readJson,
@@ -11,7 +12,7 @@ import {
 const rootEnv = parseEnv(resolve(root, ".env"));
 const relayerEnv = parseEnv(resolve(root, "relayer", ".env"));
 const fccEnv = parseEnv(resolve(root, "fcc", ".env.coston2"));
-const deployment = readJson(resolve(root, "deployments", "coston2.json"));
+const deployment = readJson(coston2DeploymentPath());
 const checks = [];
 const minimumWalletBalances = {
   "Deployer C2FLR": 1_000_000_000_000_000_000n,

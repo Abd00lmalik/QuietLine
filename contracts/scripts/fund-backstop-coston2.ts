@@ -58,7 +58,7 @@ async function waitForConfirmation(
 }
 
 async function main() {
-  const deployment = readDeployment("coston2");
+  const deployment = readDeployment("coston2-v2");
   const [operator] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
   if (network.chainId !== 114n) {

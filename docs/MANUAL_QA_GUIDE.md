@@ -2,17 +2,19 @@
 
 Last verified: August 7, 2026
 
-This guide tests the live Coston2 deployment at `https://quietline.vercel.app`.
-Use a separate test wallet. Do not use production assets.
+This guide is the V2 acceptance suite for `https://quietline.vercel.app`. Do not
+run it against the public URL until the V2 parallel deployment has passed the
+gates in `docs/V2_DEPLOYMENT_RUNBOOK.md`. Use a separate test wallet. Do not use
+production assets.
 
 ## Live deployment
 
 - Network: Coston2, chain ID `114`
-- QuietVault: `0x0A7fF224174896A743B41491f0Ef8036B32Fc5E4`
+- QuietVault: verify against the accepted `deployments/coston2-v2.json`
 - FXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
 - USD₮0: `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F`
-- FCC extension: `65951`
-- Active TEE signer: `0x3dB7259F8205B6655a809fCD7844e6D24524A43E`
+- FCC extension: verify against the accepted V2 manifest
+- Active TEE signer: verify against the accepted V2 manifest and `/info`
 - Faucet: `https://faucet.flare.network/coston2`
 - Explorer: `https://coston2-explorer.flare.network`
 
@@ -31,7 +33,7 @@ Expected result: the wallet has gas and at least one supported test token.
 
 1. Open `https://quietline.vercel.app`.
 2. Verify the hero explains FXRP-backed, fixed-term USD₮0 credit.
-3. Verify the facts show `1–5 USD₮0`, `7 / 14 / 30` day terms, and FTSOv2.
+3. Verify the facts show liquidity-based credit, `7 / 14 / 30` day terms, and FTSOv2.
 4. Read the private/public boundary.
 5. Open and close every FAQ item.
 6. Click Product, Privacy, How it works, and FAQ in the header.
@@ -128,10 +130,11 @@ the private balance decreases, and the wallet token balance increases.
 
 1. Open Earn.
 2. Click `Provide liquidity`.
-3. Enter an amount within the private USD₮0 balance.
+3. Confirm Amount and Maximum per borrower initially equal the full private
+   USD₮0 balance, then enter the amount you want to lend.
 4. Enter a minimum APR between `6%` and `20%`.
 5. Select one or more of `7`, `14`, and `30` days.
-6. Set Maximum per borrower no higher than the mandate amount.
+6. Leave Maximum per borrower at the full mandate amount or lower it.
 7. Click `Activate private mandate`.
 8. Sign the typed private action.
 
@@ -143,15 +146,29 @@ the mandate appears as Active, and its confidential state root is anchored.
 1. Open Borrow.
 2. Enter available private FXRP collateral.
 3. Click Continue.
-4. Enter a borrow amount from `1` to `5 USD₮0`.
+4. Enter any positive borrow amount supported by your collateral.
 5. Enter a maximum borrower APR compatible with the lender mandate.
 6. Select a term supported by the mandate.
 7. Ensure the displayed starting LTV is no greater than `50%`.
 8. Click `Get private quote`.
 9. Sign the encrypted quote request.
 
-Expected result: a quote appears with amount, APR, term, collateral, LTV, estimated
-interest, liquidation price, lender count, and a five-minute countdown.
+Expected result: a quote appears with amount, APR, term, collateral, LTV,
+estimated interest, liquidation price, lender count, and a five-minute
+countdown. There is no 1, 5, or 8 USD₮0 protocol cap.
+
+## 10A. Test private partial funding
+
+1. Note the total eligible lender amount.
+2. Request more USD₮0 than eligible mandates can fund while remaining below 50%
+   initial LTV.
+3. Click `Get private quote` and sign the request.
+4. Verify the quote separately shows Requested amount and Privately matched.
+5. Accept the quote.
+
+Expected result: the request does not fail merely because full liquidity is
+unavailable. Quietline settles the privately matched amount and reserves only
+the proportionate FXRP collateral shown in the quote.
 
 ## 11. Accept and settle the loan
 
@@ -261,4 +278,3 @@ Repeat the landing page and disconnected app at:
 
 Expected result: no horizontal scrolling, clipped labels, overlapping cards, hidden
 buttons, or inaccessible navigation.
-

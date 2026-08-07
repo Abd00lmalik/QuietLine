@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { computeAddress } from "ethers";
 import {
+  coston2DeploymentPath,
   parseEnv,
   readJson,
   requireValue,
@@ -23,7 +24,7 @@ const privateKey = requireValue(
   "DEPLOYER_PRIVATE_KEY",
   /^0x[0-9a-fA-F]{64}$/u,
 );
-const deploymentPath = resolve(root, "deployments", "coston2.json");
+const deploymentPath = coston2DeploymentPath();
 const deployment = readJson(deploymentPath);
 const vault = requireValue(
   { QUIET_VAULT: deployment.quietVault },

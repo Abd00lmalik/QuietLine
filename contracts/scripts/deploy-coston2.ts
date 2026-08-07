@@ -47,6 +47,7 @@ async function main() {
   const path = writeDeployment({
     network: "coston2",
     chainId: 114,
+    protocolVersion: 2,
     quietPolicy: await policy.getAddress(),
     quietVault: await vault.getAddress(),
     extensionId: 0,
@@ -61,10 +62,10 @@ async function main() {
       fxrp: COSTON2_ADDRESSES.fxrp,
       usdt0: COSTON2_ADDRESSES.usdt0,
     },
-  });
+  }, "coston2-v2");
   console.log(`QuietVault deployed at ${await vault.getAddress()}`);
   console.log("Register that address as the FCC instruction sender, launch the real FCC machine, then run configure:coston2 with FCC_PROXY_URL.");
-  console.log(`Deployment manifest written to ${path}`);
+  console.log(`Parallel V2 deployment manifest written to ${path}; deployments/coston2.json remains the live V1 manifest.`);
 }
 
 main().catch((error) => {

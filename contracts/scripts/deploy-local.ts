@@ -44,6 +44,7 @@ async function main() {
   const path = writeDeployment({
     network: "local",
     chainId: 31_337,
+    protocolVersion: 2,
     quietPolicy: await policy.getAddress(),
     quietVault: await vault.getAddress(),
     extensionId,

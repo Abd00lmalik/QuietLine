@@ -1,6 +1,7 @@
 {
   "network": "coston2",
   "chainId": 114,
+  "protocolVersion": 2,
   "quietPolicy": "0x0000000000000000000000000000000000000000",
   "quietVault": "0x0000000000000000000000000000000000000000",
   "extensionId": 0,

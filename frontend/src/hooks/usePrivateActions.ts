@@ -534,7 +534,11 @@ function termMask(terms: number[]) {
 }
 
 function toUnits(amount: number) {
-  return Math.round(amount * 1_000_000);
+  const units = Math.round(amount * 1_000_000);
+  if (!Number.isSafeInteger(units) || units <= 0) {
+    throw new Error("Amount is outside the supported private-account range");
+  }
+  return units;
 }
 
 function messageFor(error: unknown) {

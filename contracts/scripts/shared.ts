@@ -13,6 +13,7 @@ export const COSTON2_ADDRESSES = {
 export type Deployment = {
   network: "local" | "coston2";
   chainId: number;
+  protocolVersion: number;
   quietPolicy: string;
   quietVault: string;
   extensionId: number;
@@ -29,19 +30,24 @@ export type Deployment = {
   };
 };
 
-export function deploymentPath(network: "local" | "coston2") {
-  return resolve(__dirname, "..", "..", "deployments", `${network}.json`);
+export type DeploymentTarget = "local" | "coston2" | "coston2-v2";
+
+export function deploymentPath(target: DeploymentTarget) {
+  return resolve(__dirname, "..", "..", "deployments", `${target}.json`);
 }
 
-export function writeDeployment(value: Deployment) {
-  const path = deploymentPath(value.network);
+export function writeDeployment(
+  value: Deployment,
+  target: DeploymentTarget = value.network,
+) {
+  const path = deploymentPath(target);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   return path;
 }
 
-export function readDeployment(network: "local" | "coston2") {
-  return JSON.parse(readFileSync(deploymentPath(network), "utf8")) as Deployment;
+export function readDeployment(target: DeploymentTarget) {
+  return JSON.parse(readFileSync(deploymentPath(target), "utf8")) as Deployment;
 }
 
 export async function requireCode(label: string, address: string) {

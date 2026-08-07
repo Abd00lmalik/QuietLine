@@ -59,7 +59,7 @@ function signerFromPublicKey(key: PublicKey | undefined) {
 }
 
 async function main() {
-  const deployment = readDeployment("coston2");
+  const deployment = readDeployment("coston2-v2");
   const vault = await ethers.getContractAt("QuietVault", deployment.quietVault);
   const infoUrl = new URL("/info", requiredUrl("FCC_PROXY_URL"));
   const response = await fetch(infoUrl);
@@ -98,7 +98,7 @@ async function main() {
   if (allowSimulated && codeHash.toLowerCase() !== simulatedCodeHash) {
     throw new Error("simulated FCC /info returned an unexpected code hash");
   }
-  const path = writeDeployment({ ...deployment, extensionId, teeSigner, codeHash });
+  const path = writeDeployment({ ...deployment, extensionId, teeSigner, codeHash }, "coston2-v2");
   console.log(`QuietVault configured for FCC extension ${extensionId} and TEE signer ${teeSigner}`);
   console.log(`Updated ${path}`);
 }

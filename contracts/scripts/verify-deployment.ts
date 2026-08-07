@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 import { readDeployment, requireCode } from "./shared";
 
 async function main() {
-  const deployment = readDeployment("coston2");
+  const deployment = readDeployment("coston2-v2");
   await Promise.all([
     requireCode("QuietPolicy", deployment.quietPolicy),
     requireCode("QuietVault", deployment.quietVault),

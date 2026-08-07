@@ -6,6 +6,14 @@ import { spawnSync } from "node:child_process";
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
+export function coston2DeploymentPath() {
+  return resolve(
+    root,
+    "deployments",
+    process.env.QUIETLINE_DEPLOYMENT_FILE ?? "coston2-v2.json",
+  );
+}
+
 export function parseEnv(path) {
   if (!existsSync(path)) return {};
   return Object.fromEntries(

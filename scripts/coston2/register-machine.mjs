@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import {
+  coston2DeploymentPath,
   parseEnv,
   readJson,
   requireValue,
@@ -114,7 +115,7 @@ await runWithRetry(
   "corepack",
   ["pnpm", "--filter", "@quietline/contracts", "verify:coston2"],
 );
-const deployment = readJson(resolve(root, "deployments", "coston2.json"));
+const deployment = readJson(coston2DeploymentPath());
 const relayerEnvPath = resolve(root, "relayer", ".env");
 writeEnv(relayerEnvPath, {
   ...parseEnv(relayerEnvPath),

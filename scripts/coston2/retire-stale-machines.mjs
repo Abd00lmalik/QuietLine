@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { Contract, JsonRpcProvider, Wallet, getAddress } from "ethers";
 import {
+  coston2DeploymentPath,
   parseEnv,
   readJson,
   requireValue,
@@ -8,7 +9,7 @@ import {
 } from "./lib.mjs";
 
 const rootEnv = parseEnv(resolve(root, ".env"));
-const deployment = readJson(resolve(root, "deployments", "coston2.json"));
+const deployment = readJson(coston2DeploymentPath());
 const privateKey = requireValue(
   rootEnv,
   "DEPLOYER_PRIVATE_KEY",

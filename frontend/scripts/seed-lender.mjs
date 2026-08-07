@@ -107,7 +107,7 @@ if (activeMandate) {
   }
 
   const mandateAmount = Number(accountView.account.balances.USDT0.available);
-  if (mandateAmount < 1_000_000) {
+  if (mandateAmount <= 0) {
     throw new Error("Operator confidential account has no lendable USD₮0");
   }
   const mandateId = crypto.randomUUID();
@@ -154,7 +154,7 @@ if (borrowerKey) {
     Number(borrowerView.account.balances.FXRP.available),
     10_000_000,
   );
-  if (collateral < 1_000_000) {
+  if (collateral <= 0) {
     throw new Error("Borrower confidential account has no FXRP available for quote verification");
   }
   const quote = await direct(

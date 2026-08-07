@@ -2,9 +2,9 @@ import { ethers } from "hardhat";
 import { readDeployment } from "./shared";
 
 async function main() {
-  const deployment = readDeployment("coston2");
+  const deployment = readDeployment("coston2-v2");
   if (deployment.extensionId < 65_536) {
-    throw new Error("deployments/coston2.json does not contain a public FCC extension ID");
+    throw new Error("deployments/coston2-v2.json does not contain a public FCC extension ID");
   }
   const vault = await ethers.getContractAt("QuietVault", deployment.quietVault);
   const current = await vault.extensionId();
