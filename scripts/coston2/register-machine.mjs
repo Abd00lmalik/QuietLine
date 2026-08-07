@@ -69,9 +69,16 @@ async function machineIsProduction() {
     ["function getTeeMachineStatus(address teeId) view returns (uint8)"],
     provider,
   );
+  let status;
+  try {
+    status = Number(await manager.getTeeMachineStatus(teeId));
+  } catch (error) {
+    if (error?.code !== "CALL_EXCEPTION") throw error;
+    status = 0;
+  }
   return {
     teeId,
-    production: Number(await manager.getTeeMachineStatus(teeId)) === 2,
+    production: status === 2,
   };
 }
 

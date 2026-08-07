@@ -23,6 +23,7 @@ const instructionFee = BigInt(
 const operator = privateKeyToAccount(normalizePrivateKey(required("DEPLOYER_PRIVATE_KEY")));
 const borrowerKey = process.env.TEST_WALLET?.trim();
 const executeBorrow = process.argv.includes("--borrow");
+const executeClose = process.argv.includes("--close");
 const headers = relayerUrl.includes(".ngrok-free.dev")
   ? { "ngrok-skip-browser-warning": "quietline" }
   : {};
@@ -45,6 +46,7 @@ const erc20Abi = parseAbi([
 const vaultAbi = parseAbi([
   "function deposit(address token, uint256 amount) payable returns (bytes32 depositId, bytes32 requestId)",
   "function requestBorrow(bytes encryptedAcceptance) payable returns (bytes32 requestId)",
+  "function requestWithdrawal(address token, uint256 amount, address destination) payable returns (bytes32 requestId)",
   "event DepositSubmitted(bytes32 indexed depositId, address indexed account, address indexed token, uint256 amount, bytes32 requestId)",
   "event ConfidentialRequestSubmitted(bytes32 indexed requestId, bytes32 indexed command, address indexed account)",
 ]);
@@ -199,113 +201,220 @@ if (borrowerKey) {
     );
     console.log(`Borrower FXRP collateral confirmed: ${depositHash}`);
   }
-  const collateral = Math.min(
-    Number(borrowerView.account.balances.FXRP.available),
-    10_000_000,
-  );
-  if (collateral <= 0) {
-    throw new Error("Borrower confidential account has no FXRP available for quote verification");
-  }
-  const collateralValue = (
-    BigInt(collateral) * BigInt(borrowerView.price.xrpUsdE6)
-  ) / 1_000_000n;
-  const maximumAtInitialLtv = collateralValue / 2n;
-  const safeBorrowCapacity = (maximumAtInitialLtv * 9n) / 10n;
-  const requestedBorrow = BigInt(
-    process.env.BORROW_AMOUNT_USDT0_BASE_UNITS?.trim() || "3000000",
-  );
-  const borrowAmount = requestedBorrow < safeBorrowCapacity
-    ? requestedBorrow
-    : safeBorrowCapacity;
-  if (borrowAmount <= 0n) {
-    throw new Error("Borrower collateral has no positive capacity at the 50% initial LTV");
-  }
-  console.log(
-    `Borrow quote input: ${borrowAmount} USD₮0 base units against ${collateral} FXRP base units`,
-  );
-  const quote = await direct(
-    borrower,
-    borrowerSession.token,
-    config,
-    teePublicKey,
-    "QUOTE_REQUEST",
-    {
-      id: crypto.randomUUID(),
-      borrower: borrower.address,
-      amount: Number(borrowAmount),
-      termDays: 14,
-      maxAprBps: 1_200,
-      collateralFxrp: collateral,
-      expiresAt: Math.floor(Date.now() / 1000) + 300,
-    },
-    borrowerView.account.nonce,
-    "quote",
-  );
-  console.log(
-    `Borrower quote verified: ${quote.amount} base units across ${quote.tranches.length} mandate(s)`,
-  );
-  if (executeBorrow) {
-    if (borrowerView.loan) {
-      console.log(`Borrower already has active loan ${borrowerView.loan.id}; skipping settlement`);
-    } else {
-      const borrowerWallet = createWalletClient({
-        account: borrower,
-        chain,
-        transport: http(rpcUrl),
-      });
-      const payoutBefore = await publicClient.readContract({
-        address: config.assets.USDT0.address,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [borrower.address],
-      });
-      const acceptance = createActionDraft({
-        sender: borrower.address,
-        nonce: borrowerView.account.nonce,
-        action: "BORROW_ACCEPT",
-        payload: { quote, loanId: crypto.randomUUID() },
-        chainId: config.network.id,
-        vault: config.vault,
-      });
-      const acceptanceSignature = await borrower.signTypedData(acceptance.typedData);
-      const encryptedAcceptance = await sealSignedAction(
-        acceptance,
-        acceptanceSignature,
+  if (executeClose && borrowerView.loan) {
+    for (const mandate of borrowerView.mandates.filter((candidate) => candidate.active)) {
+      await direct(
+        borrower,
+        borrowerSession.token,
+        config,
         teePublicKey,
+        "CANCEL_MANDATE",
+        { mandateId: mandate.id },
+        borrowerView.account.nonce,
+        "mandate",
+        "CANCEL_MANDATE",
       );
-      const borrowHash = await borrowerWallet.writeContract({
-        address: config.vault,
-        abi: vaultAbi,
-        functionName: "requestBorrow",
-        args: [encryptedAcceptance],
-        value: instructionFee,
-      });
-      const borrowReceipt = await publicClient.waitForTransactionReceipt({
-        hash: borrowHash,
-      });
-      const borrowRequestId = eventRequestId(
-        borrowReceipt,
-        "ConfidentialRequestSubmitted",
-      );
-      await waitForChainJob(borrowRequestId, borrowerSession.token);
-      const settledView = await directAccount(
+      borrowerView = await directAccount(
         borrower,
         borrowerSession.token,
         config,
         teePublicKey,
         borrowerView.account.nonce + 1,
       );
-      const payoutAfter = await publicClient.readContract({
-        address: config.assets.USDT0.address,
-        abi: erc20Abi,
-        functionName: "balanceOf",
-        args: [borrower.address],
-      });
-      if (!settledView.loan || payoutAfter - payoutBefore !== BigInt(quote.amount)) {
-        throw new Error("Borrow settlement did not create the private loan and exact public payout");
+      console.log(`Private lender mandate cancelled: ${mandate.id}`);
+    }
+
+    const repaymentAmount = Number(borrowerView.account.balances.USDT0.available);
+    if (repaymentAmount <= 0) {
+      throw new Error("Borrower private account has no USD₮0 available for repayment");
+    }
+    await direct(
+      borrower,
+      borrowerSession.token,
+      config,
+      teePublicKey,
+      "APPLY_REPAYMENT",
+      {
+        amount: repaymentAmount,
+        operationId: crypto.randomUUID(),
+      },
+      borrowerView.account.nonce,
+      "repayment",
+    );
+    borrowerView = await directAccount(
+      borrower,
+      borrowerSession.token,
+      config,
+      teePublicKey,
+      borrowerView.account.nonce + 1,
+    );
+    if (borrowerView.loan) {
+      throw new Error("Private repayment did not close the active loan");
+    }
+    console.log("Private loan repaid and collateral released");
+
+    const withdrawalAmount = BigInt(
+      process.env.WITHDRAW_FXRP_BASE_UNITS?.trim() || "1000000",
+    );
+    const privateFxrp = BigInt(borrowerView.account.balances.FXRP.available);
+    const amount = withdrawalAmount < privateFxrp ? withdrawalAmount : privateFxrp;
+    if (amount <= 0n) {
+      throw new Error("No released FXRP is available for withdrawal verification");
+    }
+    const borrowerWallet = createWalletClient({
+      account: borrower,
+      chain,
+      transport: http(rpcUrl),
+    });
+    const walletBefore = await publicClient.readContract({
+      address: config.assets.FXRP.address,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [borrower.address],
+    });
+    const withdrawalHash = await borrowerWallet.writeContract({
+      address: config.vault,
+      abi: vaultAbi,
+      functionName: "requestWithdrawal",
+      args: [config.assets.FXRP.address, amount, borrower.address],
+      value: instructionFee,
+    });
+    const withdrawalReceipt = await publicClient.waitForTransactionReceipt({
+      hash: withdrawalHash,
+    });
+    await waitForChainJob(
+      eventRequestId(withdrawalReceipt, "ConfidentialRequestSubmitted"),
+      borrowerSession.token,
+    );
+    const withdrawnView = await directAccount(
+      borrower,
+      borrowerSession.token,
+      config,
+      teePublicKey,
+      borrowerView.account.nonce + 1,
+    );
+    const walletAfter = await publicClient.readContract({
+      address: config.assets.FXRP.address,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [borrower.address],
+    });
+    if (
+      walletAfter - walletBefore !== amount
+      || privateFxrp - BigInt(withdrawnView.account.balances.FXRP.available) !== amount
+    ) {
+      throw new Error("FXRP withdrawal did not settle exact public and private balances");
+    }
+    console.log(`Released FXRP withdrawal confirmed: ${withdrawalHash}`);
+  } else {
+    const collateral = Math.min(
+    Number(borrowerView.account.balances.FXRP.available),
+    10_000_000,
+    );
+    if (collateral <= 0) {
+      throw new Error("Borrower confidential account has no FXRP available for quote verification");
+    }
+    const collateralValue = (
+      BigInt(collateral) * BigInt(borrowerView.price.xrpUsdE6)
+    ) / 1_000_000n;
+    const maximumAtInitialLtv = collateralValue / 2n;
+    const safeBorrowCapacity = (maximumAtInitialLtv * 9n) / 10n;
+    const requestedBorrow = BigInt(
+      process.env.BORROW_AMOUNT_USDT0_BASE_UNITS?.trim() || "3000000",
+    );
+    const borrowAmount = requestedBorrow < safeBorrowCapacity
+      ? requestedBorrow
+      : safeBorrowCapacity;
+    if (borrowAmount <= 0n) {
+      throw new Error("Borrower collateral has no positive capacity at the 50% initial LTV");
+    }
+    console.log(
+      `Borrow quote input: ${borrowAmount} USD₮0 base units against ${collateral} FXRP base units`,
+    );
+    const quote = await direct(
+      borrower,
+      borrowerSession.token,
+      config,
+      teePublicKey,
+      "QUOTE_REQUEST",
+      {
+        id: crypto.randomUUID(),
+        borrower: borrower.address,
+        amount: Number(borrowAmount),
+        termDays: 14,
+        maxAprBps: 1_200,
+        collateralFxrp: collateral,
+        expiresAt: Math.floor(Date.now() / 1000) + 300,
+      },
+      borrowerView.account.nonce,
+      "quote",
+    );
+    console.log(
+      `Borrower quote verified: ${quote.amount} base units across ${quote.tranches.length} mandate(s)`,
+    );
+    if (executeBorrow) {
+      if (borrowerView.loan) {
+        console.log(`Borrower already has active loan ${borrowerView.loan.id}; skipping settlement`);
+      } else {
+        const borrowerWallet = createWalletClient({
+          account: borrower,
+          chain,
+          transport: http(rpcUrl),
+        });
+        const payoutBefore = await publicClient.readContract({
+          address: config.assets.USDT0.address,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [borrower.address],
+        });
+        const acceptance = createActionDraft({
+          sender: borrower.address,
+          nonce: borrowerView.account.nonce,
+          action: "BORROW_ACCEPT",
+          payload: { quote, loanId: crypto.randomUUID() },
+          chainId: config.network.id,
+          vault: config.vault,
+        });
+        const acceptanceSignature = await borrower.signTypedData(acceptance.typedData);
+        const encryptedAcceptance = await sealSignedAction(
+          acceptance,
+          acceptanceSignature,
+          teePublicKey,
+        );
+        const borrowHash = await borrowerWallet.writeContract({
+          address: config.vault,
+          abi: vaultAbi,
+          functionName: "requestBorrow",
+          args: [encryptedAcceptance],
+          value: instructionFee,
+        });
+        const borrowReceipt = await publicClient.waitForTransactionReceipt({
+          hash: borrowHash,
+        });
+        const borrowRequestId = eventRequestId(
+          borrowReceipt,
+          "ConfidentialRequestSubmitted",
+        );
+        await waitForChainJob(borrowRequestId, borrowerSession.token);
+        const settledView = await directAccount(
+          borrower,
+          borrowerSession.token,
+          config,
+          teePublicKey,
+          borrowerView.account.nonce + 1,
+        );
+        const payoutAfter = await publicClient.readContract({
+          address: config.assets.USDT0.address,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [borrower.address],
+        });
+        if (!settledView.loan || payoutAfter - payoutBefore !== BigInt(quote.amount)) {
+          throw new Error("Borrow settlement did not create the private loan and exact public payout");
+        }
+        console.log(`Borrow settlement confirmed: ${borrowHash}`);
+        console.log(`Private loan active: ${settledView.loan.id}`);
       }
-      console.log(`Borrow settlement confirmed: ${borrowHash}`);
-      console.log(`Private loan active: ${settledView.loan.id}`);
     }
   }
 }
