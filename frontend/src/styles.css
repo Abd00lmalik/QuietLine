@@ -3629,6 +3629,16 @@ summary {
 }
 
 @media (max-width: 720px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 42px;
+  }
+
+  .hero__copy,
+  .hero-ledger {
+    min-width: 0;
+  }
+
   .app-header {
     padding-inline: 10px;
   }
