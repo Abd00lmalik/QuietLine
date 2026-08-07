@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { Contract, JsonRpcProvider, computeAddress, concat } from "ethers";
 import {
   coston2DeploymentPath,
   deploymentProfilePaths,
@@ -42,6 +43,37 @@ const common = {
 
 const sleep = (milliseconds) =>
   new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+
+async function machineIdentity() {
+  const response = await fetch(`${proxyUrl}/info`, {
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`proxy returned ${response.status}`);
+  const info = await response.json();
+  const publicKey = info.machineData?.publicKey ?? info.teeInfo?.publicKey;
+  if (!publicKey?.x || !publicKey?.y) {
+    throw new Error("FCC proxy info does not contain the TEE public key");
+  }
+  return computeAddress(concat(["0x04", publicKey.x, publicKey.y]));
+}
+
+async function machineIsProduction() {
+  const teeId = await machineIdentity();
+  const provider = new JsonRpcProvider(
+    rootEnv.COSTON2_RPC_URL,
+    { chainId: 114, name: "coston2" },
+    { staticNetwork: true },
+  );
+  const manager = new Contract(
+    readJson(addresses).FlareTeeManager,
+    ["function getTeeMachineStatus(address teeId) view returns (uint8)"],
+    provider,
+  );
+  return {
+    teeId,
+    production: Number(await manager.getTeeMachineStatus(teeId)) === 2,
+  };
+}
 
 async function waitForStableProxy() {
   let consecutiveSuccesses = 0;
@@ -94,16 +126,29 @@ await runWithRetry("set governance", "go", [
   "-c", rootEnv.COSTON2_RPC_URL,
   "-p", proxyUrl,
 ], common);
-await runWithRetry("register TEE", "go", [
-  "run", "./cmd/register-tee",
-  "-a", addresses,
-  "-c", rootEnv.COSTON2_RPC_URL,
-  "-p", proxyUrl,
-  "-h", proxyUrl,
-  "-ep", fccEnv.NORMAL_PROXY_URL,
-  "-state", resolve(root, ".cache", "register-tee.state"),
-  "-command", "rRap",
-], common);
+const existingMachine = await machineIsProduction();
+if (existingMachine.production) {
+  console.log(`TEE ${existingMachine.teeId} is already in production; skipping registration.`);
+} else {
+  try {
+    await runWithRetry("register TEE", "go", [
+      "run", "./cmd/register-tee",
+      "-a", addresses,
+      "-c", rootEnv.COSTON2_RPC_URL,
+      "-p", proxyUrl,
+      "-h", proxyUrl,
+      "-ep", fccEnv.NORMAL_PROXY_URL,
+      "-state", resolve(root, ".cache", "register-tee.state"),
+      "-command", "rRap",
+    ], common);
+  } catch (error) {
+    const finalMachine = await machineIsProduction();
+    if (!finalMachine.production) throw error;
+    console.warn(
+      `Registration command reported an error after ${finalMachine.teeId} reached production; continuing.`,
+    );
+  }
+}
 await runWithRetry(
   "configure QuietVault",
   "corepack",

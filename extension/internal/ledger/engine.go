@@ -346,6 +346,11 @@ func sameQuote(a, b Quote) bool {
 	if b.RequestedCollateralFXRP == 0 {
 		b.RequestedCollateralFXRP = b.CollateralFXRP
 	}
+	a.Borrower = strings.ToLower(a.Borrower)
+	b.Borrower = strings.ToLower(b.Borrower)
+	// Acceptance uses a fresh FTSO observation. Price changes are valid when
+	// the recomputed quote still satisfies LTV and all economic terms match.
+	b.PriceE6 = a.PriceE6
 	aa, _ := json.Marshal(a)
 	bb, _ := json.Marshal(b)
 	return string(aa) == string(bb)

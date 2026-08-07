@@ -143,13 +143,62 @@ if (activeMandate) {
 if (borrowerKey) {
   const borrower = privateKeyToAccount(normalizePrivateKey(borrowerKey));
   const borrowerSession = await authenticate(borrower);
-  const borrowerView = await directAccount(
+  let borrowerView = await accountOrCreate(
     borrower,
-    borrowerSession.token,
+    borrowerSession,
     config,
     teePublicKey,
-    0,
   );
+  if (
+    executeBorrow
+    && BigInt(borrowerView.account.balances.FXRP.available) === 0n
+  ) {
+    const borrowerWallet = createWalletClient({
+      account: borrower,
+      chain,
+      transport: http(rpcUrl),
+    });
+    const walletBalance = await publicClient.readContract({
+      address: config.assets.FXRP.address,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [borrower.address],
+    });
+    const requestedCollateral = BigInt(
+      process.env.BORROWER_COLLATERAL_FXRP_BASE_UNITS?.trim()
+        || walletBalance.toString(),
+    );
+    const collateralDeposit = requestedCollateral < walletBalance
+      ? requestedCollateral
+      : walletBalance;
+    if (collateralDeposit === 0n) {
+      throw new Error("Borrower wallet has no FXRP available to deposit");
+    }
+    const approvalHash = await borrowerWallet.writeContract({
+      address: config.assets.FXRP.address,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [config.vault, collateralDeposit],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+    const depositHash = await borrowerWallet.writeContract({
+      address: config.vault,
+      abi: vaultAbi,
+      functionName: "deposit",
+      args: [config.assets.FXRP.address, collateralDeposit],
+      value: instructionFee,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: depositHash });
+    await waitForChainJob(eventRequestId(receipt), borrowerSession.token);
+    borrowerView = await directAccount(
+      borrower,
+      borrowerSession.token,
+      config,
+      teePublicKey,
+      borrowerView.account.nonce,
+    );
+    console.log(`Borrower FXRP collateral confirmed: ${depositHash}`);
+  }
   const collateral = Math.min(
     Number(borrowerView.account.balances.FXRP.available),
     10_000_000,
@@ -157,6 +206,23 @@ if (borrowerKey) {
   if (collateral <= 0) {
     throw new Error("Borrower confidential account has no FXRP available for quote verification");
   }
+  const collateralValue = (
+    BigInt(collateral) * BigInt(borrowerView.price.xrpUsdE6)
+  ) / 1_000_000n;
+  const maximumAtInitialLtv = collateralValue / 2n;
+  const safeBorrowCapacity = (maximumAtInitialLtv * 9n) / 10n;
+  const requestedBorrow = BigInt(
+    process.env.BORROW_AMOUNT_USDT0_BASE_UNITS?.trim() || "3000000",
+  );
+  const borrowAmount = requestedBorrow < safeBorrowCapacity
+    ? requestedBorrow
+    : safeBorrowCapacity;
+  if (borrowAmount <= 0n) {
+    throw new Error("Borrower collateral has no positive capacity at the 50% initial LTV");
+  }
+  console.log(
+    `Borrow quote input: ${borrowAmount} USD₮0 base units against ${collateral} FXRP base units`,
+  );
   const quote = await direct(
     borrower,
     borrowerSession.token,
@@ -166,7 +232,7 @@ if (borrowerKey) {
     {
       id: crypto.randomUUID(),
       borrower: borrower.address,
-      amount: 3_000_000,
+      amount: Number(borrowAmount),
       termDays: 14,
       maxAprBps: 1_200,
       collateralFxrp: collateral,

@@ -86,6 +86,38 @@ func TestCanonicalTwoLenderQuoteAndAccept(t *testing.T) {
 	}
 }
 
+func TestAcceptanceCanonicalizesBorrowerAndRefreshesPrice(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	seedCanonical(t, e, *now)
+	q, err := e.QuoteAtPrice(
+		QuoteRequest{
+			ID: "quote-canonical",
+			Borrower: "0xBorrower",
+			Amount: 3 * Scale,
+			TermDays: 14,
+			MaxAPRBPS: 1200,
+			CollateralFXRP: 10 * Scale,
+			ExpiresAt: now.Add(5 * time.Minute).Unix(),
+		},
+		Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q.Borrower = "0xBoRrOwEr"
+	if err := e.AcceptQuote(
+		q,
+		"loan-canonical",
+		0,
+		&Price{XRPUSDE6: 605_000, UpdatedAt: now.Unix()},
+	); err != nil {
+		t.Fatalf("accepting a canonical quote at a fresh valid price: %v", err)
+	}
+	if e.State().Loans["loan-canonical"] == nil {
+		t.Fatal("canonical quote did not create a loan")
+	}
+}
+
 func TestQuoteDoesNotReserveAndAcceptanceRevalidates(t *testing.T) {
 	e, _, now := newTestEngine(t)
 	seedCanonical(t, e, *now)
