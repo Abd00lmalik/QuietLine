@@ -27,7 +27,7 @@ func (e *Extension) anchorSettlement(requestID common.Hash, settlementType uint8
 	}
 	nextRoot := common.HexToHash(pending.NextRoot)
 	settlement := quiettypes.Settlement{
-		ProtocolVersion: 1, SettlementType: settlementType, Account: account, Token: token,
+		ProtocolVersion: 2, SettlementType: settlementType, Account: account, Token: token,
 		Amount: amount, Destination: destination, RequestID: requestID,
 		SettlementID:     crypto.Keccak256Hash(requestID.Bytes(), nextRoot.Bytes(), []byte(pending.Kind)),
 		PreviousSequence: pending.PreviousSequence, NextSequence: pending.NextSequence,
@@ -61,7 +61,7 @@ func (e *Extension) packSettlement(s quiettypes.Settlement) ([]byte, error) {
 		{Type: bytes32Ty}, {Type: bytes32Ty}, {Type: uint64Ty}, {Type: uint64Ty}, {Type: bytes32Ty}, {Type: bytes32Ty}, {Type: uint64Ty},
 	}
 	return args.Pack(
-		crypto.Keccak256Hash([]byte("QUIETLINE_SETTLEMENT_V1")),
+		crypto.Keccak256Hash([]byte("QUIETLINE_SETTLEMENT_V2")),
 		new(big.Int).SetUint64(e.cfg.ChainID), e.cfg.Vault, new(big.Int).SetUint64(e.cfg.ExtensionID),
 		s.ProtocolVersion, s.SettlementType, s.Account, s.Token, new(big.Int).SetUint64(s.Amount), s.Destination,
 		s.RequestID, s.SettlementID, s.PreviousSequence, s.NextSequence, s.PreviousRoot, s.NextRoot, s.Deadline,

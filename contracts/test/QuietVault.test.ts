@@ -25,14 +25,14 @@ describe("QuietVault", function () {
     await ftso.setPrice(600_000_000_000_000_000n, now);
     await fxrp.mint(user.address, 20_000_000n);
     await usdt0.mint(admin.address, 20_000_000n);
-    await usdt0.mint(await vault.getAddress(), 30_000_000n);
+    await usdt0.mint(await vault.getAddress(), 100_000_000n);
     return { admin, user, destination, tee, other, registry, machines, ftso, fxrp, usdt0, unsupported, vault, extensionId };
   }
 
   async function settlement(ctx: Awaited<ReturnType<typeof fixture>>, overrides: Record<string, unknown> = {}) {
     const now = (await ethers.provider.getBlock("latest"))!.timestamp;
     return {
-      protocolVersion: 1,
+      protocolVersion: 2,
       settlementType: 0,
       account: ctx.user.address,
       token: await ctx.usdt0.getAddress(),
@@ -109,7 +109,7 @@ describe("QuietVault", function () {
     await expect(ctx.vault.fundBackstop(10_000_000n))
       .to.emit(ctx.vault, "BackstopFunded")
       .and.to.emit(ctx.vault, "ConfidentialRequestSubmitted");
-    expect(await ctx.usdt0.balanceOf(ctx.vault)).to.equal(40_000_000n);
+    expect(await ctx.usdt0.balanceOf(ctx.vault)).to.equal(110_000_000n);
     expect(await ctx.registry.nonce()).to.equal(1n);
     await expect(ctx.vault.connect(ctx.user).fundBackstop(1n))
       .to.be.revertedWithCustomError(ctx.vault, "AccessControlUnauthorizedAccount");
@@ -138,22 +138,27 @@ describe("QuietVault", function () {
     await expect(ctx.vault.executeSettlement(gap, await sign(ctx, gap))).to.be.revertedWithCustomError(ctx.vault, "InvalidStateTransition");
   });
 
-  it("enforces per-payout and daily caps", async function () {
+  it("allows payouts above the legacy per-payout and daily caps", async function () {
     const ctx = await fixture();
-    const tooLarge = await settlement(ctx, { amount: 5_000_001n, salt: "large" });
-    await expect(ctx.vault.executeSettlement(tooLarge, await sign(ctx, tooLarge))).to.be.revertedWithCustomError(ctx.vault, "BorrowCapExceeded");
-
-    const first = await settlement(ctx, { amount: 5_000_000n, salt: "first" });
+    const first = await settlement(ctx, { amount: 20_000_000n, salt: "first" });
     await ctx.vault.executeSettlement(first, await sign(ctx, first));
     const second = await settlement(ctx, {
-      amount: 3_000_001n,
+      amount: 15_000_000n,
       previousSequence: 1,
       nextSequence: 2,
       previousRoot: first.nextRoot,
       nextRoot: ethers.keccak256(ethers.toUtf8Bytes("root-2")),
       salt: "second",
     });
-    await expect(ctx.vault.executeSettlement(second, await sign(ctx, second))).to.be.revertedWithCustomError(ctx.vault, "BorrowCapExceeded");
+    await expect(ctx.vault.executeSettlement(second, await sign(ctx, second))).to.emit(ctx.vault, "SettlementExecuted");
+    expect(await ctx.usdt0.balanceOf(ctx.destination)).to.equal(35_000_000n);
+  });
+
+  it("rejects a payout that exceeds actual vault liquidity", async function () {
+    const ctx = await fixture();
+    const value = await settlement(ctx, { amount: 100_000_001n, salt: "insufficient" });
+    await expect(ctx.vault.executeSettlement(value, await sign(ctx, value)))
+      .to.be.revertedWithCustomError(ctx.vault, "InsufficientVaultLiquidity");
   });
 
   it("allows withdrawals while paused but blocks borrow payouts", async function () {

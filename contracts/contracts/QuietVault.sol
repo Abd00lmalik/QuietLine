@@ -24,7 +24,7 @@ contract QuietVault is AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant OP_WITHDRAW_REQUEST = bytes32("WITHDRAW_REQUEST");
     bytes32 public constant OP_BACKSTOP_DEPOSIT = bytes32("BACKSTOP_DEPOSIT");
     bytes32 public constant OP_RISK_TICK = bytes32("RISK_TICK");
-    bytes32 public constant SETTLEMENT_DOMAIN = keccak256("QUIETLINE_SETTLEMENT_V1");
+    bytes32 public constant SETTLEMENT_DOMAIN = keccak256("QUIETLINE_SETTLEMENT_V2");
     uint256 private constant FIRST_PUBLIC_EXTENSION_ID = 0x10000;
     uint8 private constant TEE_STATUS_PRODUCTION = 2;
 
@@ -62,7 +62,7 @@ contract QuietVault is AccessControl, Pausable, ReentrancyGuard {
     error SettlementExpired();
     error InvalidStateTransition();
     error InvalidTeeSignature();
-    error BorrowCapExceeded();
+    error InsufficientVaultLiquidity();
     error InvalidOraclePrice();
     error StaleOraclePrice();
 
@@ -89,7 +89,6 @@ contract QuietVault is AccessControl, Pausable, ReentrancyGuard {
     mapping(address asset => bool) public supportedAsset;
     mapping(bytes32 settlementId => bool) public usedSettlementId;
     mapping(bytes32 depositId => DepositRecord) public depositById;
-    mapping(uint256 epoch => uint256 amount) public borrowOutflowByEpoch;
 
     constructor(address extensionRegistry, address machineRegistry, address ftsoV2_, bytes21 xrpUsdFeedId_, address fxrp_, address usdt0_, address admin, address operator) {
         if (extensionRegistry == address(0) || machineRegistry == address(0) || ftsoV2_ == address(0) || xrpUsdFeedId_ == bytes21(0) || fxrp_ == address(0) || usdt0_ == address(0) || admin == address(0)) revert InvalidDestination();
@@ -236,11 +235,8 @@ contract QuietVault is AccessControl, Pausable, ReentrancyGuard {
 
         if (settlement.settlementType == SettlementType.BorrowPayout) {
             if (paused()) revert EnforcedPause();
-            if (settlement.token != usdt0 || settlement.amount > QuietPolicy.MAX_BORROW) revert BorrowCapExceeded();
-            uint256 epoch = block.timestamp / 1 days;
-            uint256 nextOutflow = borrowOutflowByEpoch[epoch] + settlement.amount;
-            if (nextOutflow > QuietPolicy.DAILY_BORROW_CAP) revert BorrowCapExceeded();
-            borrowOutflowByEpoch[epoch] = nextOutflow;
+            if (settlement.token != usdt0) revert InvalidSettlement();
+            if (IERC20(usdt0).balanceOf(address(this)) < settlement.amount) revert InsufficientVaultLiquidity();
         }
 
         address recovered = ECDSA.recover(settlementHash(settlement).toEthSignedMessageHash(), signature);
