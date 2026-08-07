@@ -36,6 +36,7 @@ const directApiKey =
   secret();
 
 writeEnv(rootPath, {
+  ...existingRoot,
   COSTON2_RPC_URL: rpc,
   DEPLOYER_PRIVATE_KEY:
     existingRoot.DEPLOYER_PRIVATE_KEY ?? "REPLACE_WITH_0X_64_HEX_PRIVATE_KEY",
@@ -55,6 +56,7 @@ writeEnv(rootPath, {
 }, "Quietline Coston2 contract deployment");
 
 writeEnv(relayerPath, {
+  ...existingRelayer,
   PORT: existingRelayer.PORT ?? "8787",
   HOST: existingRelayer.HOST ?? "0.0.0.0",
   DATABASE_PATH: existingRelayer.DATABASE_PATH ?? "/data/relayer.db",
@@ -82,6 +84,7 @@ writeEnv(relayerPath, {
 }, "Quietline Coston2 relayer");
 
 writeEnv(frontendPath, {
+  ...existingFrontend,
   VITE_RELAYER_URL:
     existingFrontend.VITE_RELAYER_URL ?? "REPLACE_WITH_PUBLIC_RELAYER_URL",
   VITE_FCC_INSTRUCTION_FEE_WEI:
@@ -89,6 +92,7 @@ writeEnv(frontendPath, {
 }, "Quietline Coston2 frontend");
 
 writeEnv(fccPath, {
+  ...existingFcc,
   CHAIN_URL: rpc,
   SOURCE_DATE_EPOCH: sourceDateEpoch,
   EXTENSION_ID: existingFcc.EXTENSION_ID ?? "PENDING_EXTENSION_REGISTRATION",

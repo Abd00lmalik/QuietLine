@@ -54,6 +54,20 @@ if ($LASTEXITCODE -ne 0) {
 
 $remote = @'
 set -euo pipefail
+if ! grep -q '^AUTH_TOKEN=' /tmp/root.env; then
+  recovered_auth_token="$(
+    sudo docker inspect \
+      --format '{{range .Config.Env}}{{println .}}{{end}}' \
+      fcc-ngrok-fcc-1 2>/dev/null |
+      sed -n 's/^AUTH_TOKEN=//p' |
+      head -n 1
+  )"
+  if [ -z "$recovered_auth_token" ]; then
+    echo "AUTH_TOKEN is missing and could not be recovered from the running ngrok container." >&2
+    exit 1
+  fi
+  printf '\nAUTH_TOKEN=%s\n' "$recovered_auth_token" >> /tmp/root.env
+fi
 sudo install -d -m 0750 -o "$USER" -g "$USER" /opt/quietline
 sudo find /opt/quietline -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 sudo tar -xf /tmp/quietline.tar -C /opt/quietline
