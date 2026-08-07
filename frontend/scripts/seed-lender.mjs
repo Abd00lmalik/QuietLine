@@ -24,6 +24,9 @@ const operator = privateKeyToAccount(normalizePrivateKey(required("DEPLOYER_PRIV
 const borrowerKey = process.env.TEST_WALLET?.trim();
 const executeBorrow = process.argv.includes("--borrow");
 const executeClose = process.argv.includes("--close");
+const resetMandate = process.argv.includes("--reset-mandate");
+const expectPartial = process.argv.includes("--expect-partial");
+const expectMultiLender = process.argv.includes("--expect-multi-lender");
 const headers = relayerUrl.includes(".ngrok-free.dev")
   ? { "ngrok-skip-browser-warning": "quietline" }
   : {};
@@ -59,40 +62,67 @@ const session = await authenticate(operator);
 console.log(`Operator lender: ${operator.address}`);
 
 let accountView = await accountOrCreate(operator, session, config, teePublicKey);
-const activeMandate = accountView.mandates.find((mandate) => mandate.active);
+let activeMandate = accountView.mandates.find((mandate) => mandate.active);
+if (activeMandate && resetMandate) {
+  for (const mandate of accountView.mandates.filter((candidate) => candidate.active)) {
+    await direct(
+      operator,
+      session.token,
+      config,
+      teePublicKey,
+      "CANCEL_MANDATE",
+      { mandateId: mandate.id },
+      accountView.account.nonce,
+      "mandate",
+      "CANCEL_MANDATE",
+    );
+    accountView = await directAccount(
+      operator,
+      session.token,
+      config,
+      teePublicKey,
+      accountView.account.nonce + 1,
+    );
+    console.log(`Private lender mandate cancelled: ${mandate.id}`);
+  }
+  activeMandate = undefined;
+}
 if (activeMandate) {
   console.log(`Existing active mandate found: ${activeMandate.id}`);
 } else {
   const currentPrivate = BigInt(accountView.account.balances.USDT0.available);
-  const target = parseUnits("10", config.assets.USDT0.decimals);
-  if (currentPrivate < target) {
-    const requiredDeposit = target - currentPrivate;
+  if (currentPrivate === 0n) {
     const walletBalance = await publicClient.readContract({
       address: config.assets.USDT0.address,
       abi: erc20Abi,
       functionName: "balanceOf",
       args: [operator.address],
     });
-    if (walletBalance < requiredDeposit) {
-      throw new Error(
-        `Operator needs ${requiredDeposit} base units of ${config.assets.USDT0.symbol}, but only ${walletBalance} are available`,
-      );
+    const requestedDeposit = BigInt(
+      process.env.LENDER_DEPOSIT_USDT0_BASE_UNITS?.trim()
+        || parseUnits("10", config.assets.USDT0.decimals).toString(),
+    );
+    const depositAmount = requestedDeposit < walletBalance
+      ? requestedDeposit
+      : walletBalance;
+    if (depositAmount === 0n) {
+      throw new Error(`Operator has no public or private ${config.assets.USDT0.symbol}`);
     }
     console.log(`Approving ${config.assets.USDT0.symbol} for QuietVault`);
     const approvalHash = await walletClient.writeContract({
       address: config.assets.USDT0.address,
       abi: erc20Abi,
       functionName: "approve",
-      args: [config.vault, requiredDeposit],
+      args: [config.vault, depositAmount],
     });
     await publicClient.waitForTransactionReceipt({ hash: approvalHash });
 
-    console.log(`Depositing ${requiredDeposit} base units into the confidential lender account`);
+    console.log(`Depositing ${depositAmount} base units into the confidential lender account`);
     const depositHash = await walletClient.writeContract({
       address: config.vault,
       abi: vaultAbi,
       functionName: "deposit",
-      args: [config.assets.USDT0.address, requiredDeposit],
+      args: [config.assets.USDT0.address, depositAmount],
       value: instructionFee,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: depositHash });
@@ -112,6 +142,14 @@ if (activeMandate) {
   if (mandateAmount <= 0) {
     throw new Error("Operator confidential account has no lendable USD₮0");
   }
+  const requestedBorrowerCap = Number(
+    process.env.LENDER_PER_BORROWER_CAP_USDT0_BASE_UNITS?.trim()
+      || String(mandateAmount),
+  );
+  const perBorrowerCap = Math.min(mandateAmount, requestedBorrowerCap);
+  if (!Number.isSafeInteger(perBorrowerCap) || perBorrowerCap <= 0) {
+    throw new Error("Lender per-borrower cap must be a positive safe integer");
+  }
   const mandateId = crypto.randomUUID();
   await direct(
     operator,
@@ -124,7 +162,7 @@ if (activeMandate) {
       amount: mandateAmount,
       minAprBps: 750,
       termMask: 7,
-      perBorrowerCap: mandateAmount,
+      perBorrowerCap,
     },
     accountView.account.nonce,
     "mandate",
@@ -350,8 +388,14 @@ if (borrowerKey) {
       "quote",
     );
     console.log(
-      `Borrower quote verified: ${quote.amount} base units across ${quote.tranches.length} mandate(s)`,
+      `Borrower quote verified: ${quote.amount}/${quote.requestedAmount} base units across ${quote.tranches.length} mandate(s); partial=${quote.partial}`,
     );
+    if (expectPartial && !quote.partial) {
+      throw new Error("Expected a private partial quote, but full liquidity was returned");
+    }
+    if (expectMultiLender && quote.tranches.length < 2) {
+      throw new Error("Expected multiple private lender tranches");
+    }
     if (executeBorrow) {
       if (borrowerView.loan) {
         console.log(`Borrower already has active loan ${borrowerView.loan.id}; skipping settlement`);
