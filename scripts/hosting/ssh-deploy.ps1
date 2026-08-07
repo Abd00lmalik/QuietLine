@@ -59,7 +59,7 @@ if ! grep -q '^AUTH_TOKEN=' /tmp/root.env; then
     sudo docker inspect \
       --format '{{range .Config.Env}}{{println .}}{{end}}' \
       fcc-ngrok-fcc-1 2>/dev/null |
-      sed -n 's/^AUTH_TOKEN=//p' |
+      sed -n 's/^NGROK_AUTHTOKEN=//p' |
       head -n 1
   )"
   if [ -z "$recovered_auth_token" ]; then
