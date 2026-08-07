@@ -13,7 +13,7 @@ const recoveryId = `0x${"1".repeat(64)}` as Hex;
 
 const anchor: Anchor = {
   settlement: {
-    protocolVersion: 1,
+    protocolVersion: 2,
     settlementType: 2,
     account,
     token: "0x0000000000000000000000000000000000000000",

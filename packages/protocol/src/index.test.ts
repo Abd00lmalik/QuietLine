@@ -30,7 +30,7 @@ describe("protocol schemas", () => {
     expect(actionSchema.safeParse("PLAINTEXT_BALANCE").success).toBe(false);
     expect(
       settlementSchema.safeParse({
-        protocolVersion: 1,
+        protocolVersion: 2,
         settlementType: "BORROW_PAYOUT",
         account: "not-an-address",
       }).success,

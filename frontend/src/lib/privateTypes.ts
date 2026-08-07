@@ -74,8 +74,11 @@ export type PrivateQuote = {
   requestId: string;
   borrower: Address;
   amount: number;
+  requestedAmount?: number;
   termDays: number;
   collateralFxrp: number;
+  requestedCollateralFxrp?: number;
+  partial?: boolean;
   lenderAprBps: number;
   borrowerAprBps: number;
   maxAprBps: number;

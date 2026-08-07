@@ -122,7 +122,7 @@ if (activeMandate) {
       amount: mandateAmount,
       minAprBps: 750,
       termMask: 7,
-      perBorrowerCap: Math.min(mandateAmount, 5_000_000),
+      perBorrowerCap: mandateAmount,
     },
     accountView.account.nonce,
     "mandate",

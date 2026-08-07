@@ -28,7 +28,7 @@ export function assetSymbol(asset: AssetId) {
 }
 
 export const POLICY = {
-  version: 1,
+  version: 2,
   initialLtvBps: 5_000,
   warningLtvBps: 5_500,
   liquidationLtvBps: 6_500,
@@ -36,9 +36,6 @@ export const POLICY = {
   protocolSpreadBps: 50,
   lateSpreadBps: 300,
   termsDays: [7, 14, 30] as const,
-  minBorrow: 1_000_000n,
-  maxBorrow: 5_000_000n,
-  globalDebtCap: 8_000_000n,
   quoteValiditySeconds: 300,
   settlementValiditySeconds: 600,
 } as const;
@@ -58,7 +55,7 @@ export const actionSchema = z.enum([
 ]);
 
 export const settlementSchema = z.object({
-  protocolVersion: z.literal(1),
+  protocolVersion: z.literal(2),
   settlementType: z.enum(["BORROW_PAYOUT", "USER_WITHDRAWAL", "CHECKPOINT"]),
   account: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   token: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
@@ -76,6 +73,7 @@ export const settlementSchema = z.object({
 export const deploymentManifestSchema = z.object({
   network: z.literal("coston2"),
   chainId: z.literal(114),
+  protocolVersion: z.literal(2).optional(),
   quietPolicy: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   quietVault: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   extensionId: z.number().int().min(65_536),

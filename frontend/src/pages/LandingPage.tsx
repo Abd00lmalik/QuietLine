@@ -34,7 +34,7 @@ const faqs = [
   {
     question: "What assets does the hackathon release support?",
     answer:
-      "The Coston2 release supports FXRP and USD₮0. Borrowers use FXRP collateral to access 1–5 USD₮0 fixed-term credit; lenders privately allocate USD₮0.",
+      "The Coston2 release supports FXRP and USD₮0. Borrowers use FXRP as collateral and can borrow any amount private lenders can fund within Quietline's risk rules.",
   },
   {
     question: "Is this ready for production funds?",
@@ -113,9 +113,9 @@ export function LandingPage() {
               <h1>Quietline</h1>
               <p className="hero__tagline">Private credit, settled on Flare.</p>
               <p className="hero__body">
-                Deposit FXRP, match against private USD₮0 lender mandates, and manage
-                one fixed-term credit line without publishing its APR, debt, health,
-                or stress calculations.
+                Use FXRP to borrow USD₮0 from private lenders, or put your USD₮0 to
+                work on terms you control. Your loan terms, balance, and risk details
+                stay out of public chain state.
               </p>
               <div className="hero__actions">
                 <Link className="button button--primary button--large" to="/app">
@@ -127,7 +127,7 @@ export function LandingPage() {
               </div>
               <div className="hero__facts" aria-label="Protocol facts">
                 <span>
-                  <strong>1–5 USD₮0</strong> testnet credit
+                  <strong>Liquidity-based</strong> credit
                 </span>
                 <span>
                   <strong>7 / 14 / 30</strong> day terms
@@ -218,40 +218,40 @@ export function LandingPage() {
 
           <section id="product" className="landing-section product-section">
             <div className="section-heading">
-              <span>Private market, public settlement</span>
-              <h2>A complete fixed-term market with an explicit privacy boundary.</h2>
+              <span>Private borrowing and lending</span>
+              <h2>Borrow what lenders can fund without publishing your full position.</h2>
               <p>
-                Borrowing, lending, repayment, stress testing, and risk monitoring
-                share one confidential ledger while token custody remains verifiable
-                on Coston2.
+                Quietline connects people who have USD₮0 with people who want to
+                borrow it against FXRP. Token transfers remain verifiable on Coston2,
+                while loan terms and account details stay private.
               </p>
             </div>
             <div className="feature-grid">
               <article>
                 <div className="feature-icon"><CircleDollarSign size={22} /></div>
-                <h3>Confidential lender mandates</h3>
+                <h3>Borrow privately</h3>
                 <p>
-                  Lenders privately define liquidity, minimum APR, eligible 7, 14, or
-                  30 day terms, and per-borrower caps. FCC returns a borrower-specific
-                  quote without revealing the mandate book.
+                  Deposit FXRP, choose how much USD₮0 you want, and receive a private
+                  quote. If lenders cannot fund the full request, Quietline offers the
+                  amount currently available instead.
                 </p>
               </article>
               <article>
                 <div className="feature-icon"><Gauge size={22} /></div>
-                <h3>Private risk computation</h3>
+                <h3>Lend on your terms</h3>
                 <p>
-                  FTSOv2 observations feed private debt accrual, LTV, health warnings,
-                  liquidation eligibility, and user-selected stress scenarios. An
-                  automated keeper requests ongoing checks.
+                  Deposit USD₮0 and choose your minimum return, allowed loan lengths,
+                  and maximum amount per borrower. Borrowers cannot see your private
+                  offer settings.
                 </p>
               </article>
               <article>
                 <div className="feature-icon"><Blocks size={22} /></div>
-                <h3>Constrained vault settlement</h3>
+                <h3>Manage risk clearly</h3>
                 <p>
-                  QuietVault holds FXRP and USD₮0 publicly, then executes only fresh,
-                  sequential, TEE-signed borrow payouts and withdrawals. Repayment is
-                  full-close in this testnet release.
+                  See private health warnings, test what a lower XRP price would do,
+                  repay your loan, and withdraw available funds. The public vault only
+                  moves tokens after the private checks pass.
                 </p>
               </article>
             </div>
@@ -322,7 +322,7 @@ export function LandingPage() {
                 <div className="how-flow__number">3</div>
                 <div className="how-flow__icon"><Blocks size={21} /></div>
                 <h3>Anchor</h3>
-                <p>A signed root transition reaches QuietVault, which enforces sequence, replay, asset, and cap rules.</p>
+                <p>A signed root transition reaches QuietVault, which enforces sequence, replay, asset, and available-liquidity rules.</p>
               </li>
               <li>
                 <div className="how-flow__number">4</div>
@@ -337,7 +337,7 @@ export function LandingPage() {
             <div>
               <span>Quietline on Coston2</span>
               <h2>Run private credit on Coston2.</h2>
-              <p>Connect a funded wallet, create a private lender mandate or deposit FXRP, request a 1–5 USD₮0 quote, inspect private risk, and close the position with one repayment.</p>
+              <p>Connect a funded wallet, lend any available USD₮0 or deposit FXRP, request a liquidity-based quote, inspect private risk, and close the position with one repayment.</p>
             </div>
             <Link className="button button--primary button--large" to="/app">
               Open the application <ArrowRight size={18} />

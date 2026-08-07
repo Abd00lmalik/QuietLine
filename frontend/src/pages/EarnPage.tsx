@@ -1,5 +1,5 @@
 import { BadgeDollarSign, LockKeyhole, Plus, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ConnectQuietline } from "../components/ConnectQuietline";
 import {
   AssetBadge,
@@ -90,16 +90,24 @@ function termsFromMask(mask: number) {
 function MandateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [amount, setAmount] = useState("4");
   const [apr, setApr] = useState("7.5");
-  const [cap, setCap] = useState("3");
+  const [cap, setCap] = useState("4");
+  const [capCustomized, setCapCustomized] = useState(false);
   const [terms, setTerms] = useState([7, 14]);
   const [loading, setLoading] = useState(false);
   const { setMandate } = usePrivateActions();
   const available = useQuietline((state) => state.privateUsdt0);
   const { push } = useToast();
+  useEffect(() => {
+    if (!open) return;
+    const fullBalance = available > 0 ? String(available) : "";
+    setAmount(fullBalance);
+    setCap(fullBalance);
+    setCapCustomized(false);
+  }, [available, open]);
   const submit = async () => {
     const numericAmount = Number(amount);
     const numericApr = Number(apr);
-    if (numericAmount < 1 || numericAmount > available) {
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0 || numericAmount > available) {
       push({ tone: "error", title: `Mandate amount must fit your private ${usdt0Symbol} balance` });
       return;
     }
@@ -107,7 +115,7 @@ function MandateModal({ open, onClose }: { open: boolean; onClose: () => void })
       push({ tone: "error", title: "Minimum APR must be between 6% and 20%" });
       return;
     }
-    if (terms.length === 0 || Number(cap) > numericAmount) {
+    if (!Number.isFinite(Number(cap)) || Number(cap) <= 0 || terms.length === 0 || Number(cap) > numericAmount) {
       push({ tone: "error", title: "Choose a term and keep the borrower cap within the mandate" });
       return;
     }
@@ -138,11 +146,11 @@ function MandateModal({ open, onClose }: { open: boolean; onClose: () => void })
   return (
     <Modal open={open} onClose={loading ? () => undefined : onClose} title="Activate private mandate" description="Only broad market availability is public. These terms stay confidential.">
       <div className="form-grid">
-        <label className="field"><span>Amount</span><div className="amount-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" /><strong>{usdt0Symbol}</strong></div><small>{available.toFixed(2)} available privately</small></label>
+        <label className="field"><span>Amount</span><div className="amount-input"><input value={amount} onChange={(event) => { const next = event.target.value; setAmount(next); if (!capCustomized) setCap(next); }} inputMode="decimal" /><strong>{usdt0Symbol}</strong></div><small>{available.toFixed(2)} available privately</small></label>
         <label className="field"><span>Minimum lender APR</span><div className="amount-input"><input value={apr} onChange={(event) => setApr(event.target.value)} inputMode="decimal" /><strong>%</strong></div></label>
       </div>
       <fieldset className="field"><legend>Eligible terms</legend><div className="check-grid">{[7, 14, 30].map((term) => <label key={term}><input type="checkbox" checked={terms.includes(term)} onChange={() => setTerms((current) => current.includes(term) ? current.filter((value) => value !== term) : [...current, term])} /><span>{term} days</span></label>)}</div></fieldset>
-      <label className="field"><span>Maximum per borrower</span><div className="amount-input"><input value={cap} onChange={(event) => setCap(event.target.value)} inputMode="decimal" /><strong>{usdt0Symbol}</strong></div></label>
+      <label className="field"><span>Maximum per borrower</span><div className="amount-input"><input value={cap} onChange={(event) => { setCap(event.target.value); setCapCustomized(true); }} inputMode="decimal" /><strong>{usdt0Symbol}</strong></div><small>Defaults to the full mandate. Lower it to spread liquidity across borrowers.</small></label>
       <div className="privacy-notice"><PrivacyLabel scope="compute" /><p>The confidential engine sees these values in plaintext while evaluating matches. The relayer receives ciphertext.</p></div>
       <div className="modal__footer"><Button variant="quiet" onClick={onClose} disabled={loading}>Cancel</Button><Button loading={loading} onClick={() => void submit()}>Activate private mandate</Button></div>
     </Modal>

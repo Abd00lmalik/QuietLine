@@ -111,8 +111,8 @@ function BorrowWorkflow() {
       push({ tone: "error", title: "FTSOv2 price is not available yet" });
       return;
     }
-    if (Number(amount) < 1 || Number(amount) > 5) {
-      push({ tone: "error", title: `Borrow between 1 and 5 ${usdt0Symbol}` });
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      push({ tone: "error", title: `Enter a positive ${usdt0Symbol} amount` });
       return;
     }
     if (startingLtv > 50) {
@@ -181,6 +181,8 @@ function BorrowWorkflow() {
   };
 
   const quoteAmount = (quote?.amount ?? 0) / 1_000_000;
+  const requestedQuoteAmount =
+    (quote?.requestedAmount ?? quote?.amount ?? 0) / 1_000_000;
   const quoteCollateral = (quote?.collateralFxrp ?? 0) / 1_000_000;
   const quoteApr = (quote?.borrowerAprBps ?? 0) / 100;
   const quotePrice = (quote?.priceE6 ?? 0) / 1_000_000;
@@ -285,9 +287,13 @@ function BorrowWorkflow() {
             </Status>
           </header>
           <div className="quote-primary">
-            <span>You receive</span>
+            <span>{quote?.partial ? "Privately matched" : "You receive"}</span>
             <strong>{quoteAmount.toFixed(2)} {usdt0Symbol}</strong>
-            <small>Delivered publicly after settlement</small>
+            <small>
+              {quote?.partial
+                ? `You requested ${requestedQuoteAmount.toFixed(2)} ${usdt0Symbol}. Accepting settles the matched amount.`
+                : "Delivered publicly after settlement"}
+            </small>
           </div>
           <HealthScale value={quoteLtv} warning={55} liquidation={65} label="Quoted LTV" />
           <div className="quote-grid">
@@ -298,11 +304,12 @@ function BorrowWorkflow() {
             <div><span>Starting LTV</span><strong>{quoteLtv.toFixed(1)}%</strong></div>
             <div><span>Initial liquidation XRP price</span><strong>${quoteLiquidationPrice.toFixed(4)}</strong></div>
             <div><span>Lender count</span><strong>{quote?.tranches.length ?? 0}</strong></div>
+            {quote?.partial ? <div><span>Requested amount</span><strong>{requestedQuoteAmount.toFixed(2)} {usdt0Symbol}</strong></div> : null}
             <div><span>Individual lender rates</span><strong className="private-redacted"><LockKeyhole size={14} /> Not published</strong></div>
           </div>
           <div className="quote-disclosure">
             <PrivacyLabel scope="compute" />
-            <p>The quote and lender allocation are encrypted in transit and absent from chain state. Your decrypted quote payload contains the selected tranches. Accepting creates a public request transaction and a public {quoteAmount.toFixed(4)} {usdt0Symbol} payout.</p>
+            <p>The quote and lender allocation are encrypted in transit and absent from chain state. Your decrypted quote payload contains the selected tranches. Accepting creates a public request transaction and a public {quoteAmount.toFixed(4)} {usdt0Symbol} payout{quote?.partial ? ` from your ${requestedQuoteAmount.toFixed(4)} ${usdt0Symbol} request` : ""}.</p>
           </div>
           <div className="inline-actions inline-actions--end">
             <Button variant="quiet" onClick={() => setStep(1)}>Edit request</Button>
