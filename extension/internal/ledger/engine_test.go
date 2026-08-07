@@ -119,6 +119,191 @@ func TestQuoteDistinguishesMissingLiquidityFromAcceptanceRace(t *testing.T) {
 	}
 }
 
+func TestQuoteSupportsOneHundredFromSingleLender(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	for _, step := range []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-100") },
+		func() error { return e.Deposit("0xLender", AssetUSDT0, 100*Scale, "dep-lender-100") },
+		func() error { return e.Deposit("0xBorrower", AssetFXRP, 400*Scale, "dep-borrower-100") },
+		func() error { return e.SetMandate("0xLender", "mandate-100", 100*Scale, 750, 7, 100*Scale, 0) },
+	} {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	q, err := e.Quote(QuoteRequest{
+		ID: "quote-100", Borrower: "0xBorrower", Amount: 100 * Scale,
+		TermDays: 30, MaxAPRBPS: 1000, CollateralFXRP: 400 * Scale,
+		ExpiresAt: now.Add(5 * time.Minute).Unix(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Partial || q.Amount != 100*Scale || q.RequestedAmount != 100*Scale || len(q.Tranches) != 1 {
+		t.Fatalf("unexpected full quote: %+v", q)
+	}
+	if err := e.AcceptQuote(q, "loan-100", 0, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.State().Loans["loan-100"].Principal; got != 100*Scale {
+		t.Fatalf("unexpected principal: %d", got)
+	}
+}
+
+func TestQuoteSupportsOneHundredAcrossMultipleLenders(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	steps := []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-multi-100") },
+		func() error { return e.Deposit("0xLender1", AssetUSDT0, 40*Scale, "dep-multi-1") },
+		func() error { return e.Deposit("0xLender2", AssetUSDT0, 60*Scale, "dep-multi-2") },
+		func() error { return e.Deposit("0xBorrower", AssetFXRP, 400*Scale, "dep-multi-b") },
+		func() error { return e.SetMandate("0xLender1", "mandate-multi-1", 40*Scale, 700, 7, 40*Scale, 0) },
+		func() error { return e.SetMandate("0xLender2", "mandate-multi-2", 60*Scale, 800, 7, 60*Scale, 0) },
+	}
+	for _, step := range steps {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	q, err := e.Quote(QuoteRequest{
+		ID: "quote-multi-100", Borrower: "0xBorrower", Amount: 100 * Scale,
+		TermDays: 30, MaxAPRBPS: 1000, CollateralFXRP: 400 * Scale,
+		ExpiresAt: now.Add(5 * time.Minute).Unix(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Partial || len(q.Tranches) != 2 || q.Tranches[0].Principal+q.Tranches[1].Principal != 100*Scale {
+		t.Fatalf("unexpected multi-lender quote: %+v", q)
+	}
+}
+
+func TestQuoteReturnsPrivatePartialFunding(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	steps := []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-partial") },
+		func() error { return e.Deposit("0xLender1", AssetUSDT0, 50*Scale, "dep-partial-1") },
+		func() error { return e.Deposit("0xLender2", AssetUSDT0, 22_500_000, "dep-partial-2") },
+		func() error { return e.Deposit("0xBorrower", AssetFXRP, 400*Scale, "dep-partial-b") },
+		func() error { return e.SetMandate("0xLender1", "mandate-partial-1", 50*Scale, 700, 7, 50*Scale, 0) },
+		func() error { return e.SetMandate("0xLender2", "mandate-partial-2", 22_500_000, 800, 7, 22_500_000, 0) },
+	}
+	for _, step := range steps {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	q, err := e.Quote(QuoteRequest{
+		ID: "quote-partial", Borrower: "0xBorrower", Amount: 100 * Scale,
+		TermDays: 30, MaxAPRBPS: 1000, CollateralFXRP: 400 * Scale,
+		ExpiresAt: now.Add(5 * time.Minute).Unix(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !q.Partial || q.RequestedAmount != 100*Scale || q.Amount != 72_500_000 {
+		t.Fatalf("unexpected partial amount: %+v", q)
+	}
+	if q.RequestedCollateralFXRP != 400*Scale || q.CollateralFXRP != 290*Scale {
+		t.Fatalf("unexpected partial collateral: %+v", q)
+	}
+	if err := e.AcceptQuote(q, "loan-partial", 0, nil); err != nil {
+		t.Fatal(err)
+	}
+	loan := e.State().Loans["loan-partial"]
+	if loan.Principal != 72_500_000 || loan.CollateralFXRP != 290*Scale {
+		t.Fatalf("partial quote was not settled exactly: %+v", loan)
+	}
+}
+
+func TestPerBorrowerCapsProducePartialQuote(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	steps := []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-caps") },
+		func() error { return e.Deposit("0xLender", AssetUSDT0, 100*Scale, "dep-caps") },
+		func() error { return e.SetMandate("0xLender", "mandate-cap-1", 50*Scale, 700, 7, 30*Scale, 0) },
+		func() error { return e.SetMandate("0xLender", "mandate-cap-2", 50*Scale, 710, 7, 30*Scale, 1) },
+	}
+	for _, step := range steps {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	q, err := e.Quote(QuoteRequest{
+		ID: "quote-caps", Borrower: "0xBorrower", Amount: 100 * Scale,
+		TermDays: 30, MaxAPRBPS: 1000, CollateralFXRP: 400 * Scale,
+		ExpiresAt: now.Add(5 * time.Minute).Unix(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !q.Partial || q.Amount != 60*Scale || len(q.Tranches) != 2 {
+		t.Fatalf("caps were not respected: %+v", q)
+	}
+}
+
+func TestQuoteRejectsAboveFiftyPercentInitialLTV(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	for _, step := range []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-ltv") },
+		func() error { return e.Deposit("0xLender", AssetUSDT0, 100*Scale, "dep-ltv") },
+		func() error { return e.SetMandate("0xLender", "mandate-ltv", 100*Scale, 700, 7, 100*Scale, 0) },
+	} {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	_, err := e.Quote(QuoteRequest{
+		ID: "quote-ltv", Borrower: "0xBorrower", Amount: 100 * Scale,
+		TermDays: 30, MaxAPRBPS: 1000, CollateralFXRP: 300 * Scale,
+		ExpiresAt: now.Add(5 * time.Minute).Unix(),
+	})
+	if err == nil || err.Error() != "initial LTV exceeds 50%" {
+		t.Fatalf("expected LTV rejection, got %v", err)
+	}
+}
+
+func TestLargePositionArithmeticDoesNotOverflow(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	const principal = uint64(10_000_000_000_000)
+	const collateral = uint64(40_000_000_000_000)
+	for _, step := range []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-large") },
+		func() error { return e.Deposit("0xLender", AssetUSDT0, principal, "dep-large-l") },
+		func() error { return e.Deposit("0xBorrower", AssetFXRP, collateral, "dep-large-b") },
+		func() error { return e.SetMandate("0xLender", "mandate-large", principal, 750, 7, principal, 0) },
+	} {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	q, err := e.Quote(QuoteRequest{
+		ID: "quote-large", Borrower: "0xBorrower", Amount: principal,
+		TermDays: 30, MaxAPRBPS: 1000, CollateralFXRP: collateral,
+		ExpiresAt: now.Add(5 * time.Minute).Unix(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.AcceptQuote(q, "loan-large", 0, nil); err != nil {
+		t.Fatal(err)
+	}
+	confirmPending(t, e)
+	*now = now.Add(365 * 24 * time.Hour)
+	if err := e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "risk-large"); err != nil {
+		t.Fatal(err)
+	}
+	if e.State().Loans["loan-large"].AccruedInterestRay == 0 {
+		t.Fatal("large position did not accrue interest")
+	}
+}
+
 func TestFullRepaymentConservesPrincipalAndReleasesCollateral(t *testing.T) {
 	e, _, now := newTestEngine(t)
 	seedCanonical(t, e, *now)

@@ -71,17 +71,20 @@ type QuoteRequest struct {
 }
 
 type Quote struct {
-	RequestID      string    `json:"requestId"`
-	Borrower       string    `json:"borrower"`
-	Amount         uint64    `json:"amount"`
-	TermDays       uint16    `json:"termDays"`
-	CollateralFXRP uint64    `json:"collateralFxrp"`
-	LenderAPRBPS   uint32    `json:"lenderAprBps"`
-	BorrowerAPRBPS uint32    `json:"borrowerAprBps"`
-	MaxAPRBPS      uint32    `json:"maxAprBps"`
-	Tranches       []Tranche `json:"tranches"`
-	ExpiresAt      int64     `json:"expiresAt"`
-	PriceE6        uint64    `json:"priceE6"`
+	RequestID               string    `json:"requestId"`
+	Borrower                string    `json:"borrower"`
+	Amount                  uint64    `json:"amount"`
+	RequestedAmount         uint64    `json:"requestedAmount"`
+	TermDays                uint16    `json:"termDays"`
+	CollateralFXRP          uint64    `json:"collateralFxrp"`
+	RequestedCollateralFXRP uint64    `json:"requestedCollateralFxrp"`
+	Partial                 bool      `json:"partial"`
+	LenderAPRBPS            uint32    `json:"lenderAprBps"`
+	BorrowerAPRBPS          uint32    `json:"borrowerAprBps"`
+	MaxAPRBPS               uint32    `json:"maxAprBps"`
+	Tranches                []Tranche `json:"tranches"`
+	ExpiresAt               int64     `json:"expiresAt"`
+	PriceE6                 uint64    `json:"priceE6"`
 }
 
 type Price struct {
@@ -125,7 +128,7 @@ type State struct {
 }
 
 func NewState() *State {
-	return &State{Version: 1, Accounts: map[string]*Account{}, Mandates: map[string]*Mandate{}, Loans: map[string]*Loan{}, Processed: map[string]bool{}, Activities: []Activity{}}
+	return &State{Version: 2, Accounts: map[string]*Account{}, Mandates: map[string]*Mandate{}, Loans: map[string]*Loan{}, Processed: map[string]bool{}, Activities: []Activity{}}
 }
 
 func termBit(days uint16) uint8 {

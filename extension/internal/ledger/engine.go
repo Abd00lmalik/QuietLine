@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	ErrInsufficientBalance = errors.New("insufficient private balance")
+	ErrInsufficientBalance   = errors.New("insufficient private balance")
 	ErrInsufficientLiquidity = errors.New("no eligible private lender liquidity for this request")
-	ErrDuplicate           = errors.New("operation already processed")
-	ErrLiquidityChanged    = errors.New("liquidity changed; request a new quote")
-	ErrAnchorPending       = errors.New("previous confidential mutation is awaiting on-chain anchor")
+	ErrDuplicate             = errors.New("operation already processed")
+	ErrLiquidityChanged      = errors.New("liquidity changed; request a new quote")
+	ErrAnchorPending         = errors.New("previous confidential mutation is awaiting on-chain anchor")
 )
 
 type Engine struct {
@@ -200,18 +200,22 @@ func (e *Engine) QuoteAtPrice(req QuoteRequest, observed Price) (Quote, error) {
 }
 
 func quote(s *State, req QuoteRequest, now time.Time) (Quote, error) {
-	if req.Amount < Scale || req.Amount > 5*Scale || termBit(req.TermDays) == 0 || req.MaxAPRBPS < 650 || req.ExpiresAt <= now.Unix() {
+	if req.Amount == 0 || req.CollateralFXRP == 0 || termBit(req.TermDays) == 0 || req.MaxAPRBPS < 650 || req.ExpiresAt <= now.Unix() {
 		return Quote{}, errors.New("invalid quote request")
 	}
 	if s.Price.XRPUSDE6 == 0 || now.Unix()-s.Price.UpdatedAt > 300 {
 		return Quote{}, errors.New("FTSO price is stale")
 	}
-	value := req.CollateralFXRP * s.Price.XRPUSDE6 / Scale
-	if value == 0 || req.Amount*BPS/value > 5000 {
-		return Quote{}, errors.New("initial LTV exceeds 50%")
+	value, err := mulDiv([]uint64{req.CollateralFXRP, s.Price.XRPUSDE6}, Scale, false)
+	if err != nil {
+		return Quote{}, err
 	}
-	if s.ActiveDebt+req.Amount > 8*Scale {
-		return Quote{}, errors.New("global active debt cap exceeded")
+	ltv, err := mulDiv([]uint64{req.Amount, BPS}, value, false)
+	if err != nil {
+		return Quote{}, err
+	}
+	if value == 0 || ltv > 5000 {
+		return Quote{}, errors.New("initial LTV exceeds 50%")
 	}
 	eligible := make([]*Mandate, 0)
 	for _, m := range s.Mandates {
@@ -227,7 +231,7 @@ func quote(s *State, req QuoteRequest, now time.Time) (Quote, error) {
 		hj := sha256.Sum256([]byte(eligible[j].ID + req.ID))
 		return string(hi[:]) < string(hj[:])
 	})
-	remaining, weighted := req.Amount, uint64(0)
+	remaining := req.Amount
 	tranches := []Tranche{}
 	for _, m := range eligible {
 		take := m.Available
@@ -241,17 +245,36 @@ func quote(s *State, req QuoteRequest, now time.Time) (Quote, error) {
 			continue
 		}
 		tranches = append(tranches, Tranche{MandateID: m.ID, Lender: m.Lender, Principal: take, APRBPS: m.MinAPRBPS})
-		weighted += take * uint64(m.MinAPRBPS)
 		remaining -= take
 		if remaining == 0 {
 			break
 		}
 	}
-	if remaining != 0 {
+	funded := req.Amount - remaining
+	if funded == 0 {
 		return Quote{}, ErrInsufficientLiquidity
 	}
-	lenderAPR := uint32(weighted / req.Amount)
-	return Quote{RequestID: req.ID, Borrower: strings.ToLower(req.Borrower), Amount: req.Amount, TermDays: req.TermDays, CollateralFXRP: req.CollateralFXRP, LenderAPRBPS: lenderAPR, BorrowerAPRBPS: lenderAPR + 50, MaxAPRBPS: req.MaxAPRBPS, Tranches: tranches, ExpiresAt: req.ExpiresAt, PriceE6: s.Price.XRPUSDE6}, nil
+	lenderAPR, err := weightedAverage(tranches, funded)
+	if err != nil {
+		return Quote{}, err
+	}
+	if lenderAPR > ^uint32(0)-50 {
+		return Quote{}, errArithmeticOverflow
+	}
+	quotedCollateral, err := mulDiv([]uint64{req.CollateralFXRP, funded}, req.Amount, true)
+	if err != nil {
+		return Quote{}, err
+	}
+	return Quote{
+		RequestID: req.ID, Borrower: strings.ToLower(req.Borrower),
+		Amount: funded, RequestedAmount: req.Amount,
+		TermDays:       req.TermDays,
+		CollateralFXRP: quotedCollateral, RequestedCollateralFXRP: req.CollateralFXRP,
+		Partial:      funded < req.Amount,
+		LenderAPRBPS: lenderAPR, BorrowerAPRBPS: lenderAPR + 50,
+		MaxAPRBPS: req.MaxAPRBPS, Tranches: tranches,
+		ExpiresAt: req.ExpiresAt, PriceE6: s.Price.XRPUSDE6,
+	}, nil
 }
 
 func (e *Engine) AcceptQuote(q Quote, loanID string, expectedNonce uint64, observedPrice *Price) error {
@@ -266,8 +289,16 @@ func (e *Engine) AcceptQuote(q Quote, loanID string, expectedNonce uint64, obser
 			}
 			s.Price = *observedPrice
 		}
-		fresh, err := quote(s, QuoteRequest{ID: q.RequestID, Borrower: q.Borrower, Amount: q.Amount, TermDays: q.TermDays, MaxAPRBPS: q.MaxAPRBPS, CollateralFXRP: q.CollateralFXRP, ExpiresAt: q.ExpiresAt}, e.clock())
-		if err != nil || !sameTranches(fresh.Tranches, q.Tranches) {
+		requestedAmount := q.RequestedAmount
+		if requestedAmount == 0 {
+			requestedAmount = q.Amount
+		}
+		requestedCollateral := q.RequestedCollateralFXRP
+		if requestedCollateral == 0 {
+			requestedCollateral = q.CollateralFXRP
+		}
+		fresh, err := quote(s, QuoteRequest{ID: q.RequestID, Borrower: q.Borrower, Amount: requestedAmount, TermDays: q.TermDays, MaxAPRBPS: q.MaxAPRBPS, CollateralFXRP: requestedCollateral, ExpiresAt: q.ExpiresAt}, e.clock())
+		if err != nil || !sameQuote(fresh, q) {
 			return ErrLiquidityChanged
 		}
 		a := account(s, q.Borrower)
@@ -294,16 +325,27 @@ func (e *Engine) AcceptQuote(q Quote, loanID string, expectedNonce uint64, obser
 		}
 		now := nowUnix(e.clock())
 		loan := &Loan{ID: loanID, Borrower: a.Owner, Principal: q.Amount, CollateralFXRP: q.CollateralFXRP, BorrowerAPRBPS: q.BorrowerAPRBPS, TermDays: q.TermDays, StartedAt: now, LastAccruedAt: now, MaturesAt: now + int64(q.TermDays)*86400, Tranches: q.Tranches, Status: "healthy"}
-		updateRisk(loan, s.Price.XRPUSDE6, now)
+		if err := updateRisk(loan, s.Price.XRPUSDE6, now); err != nil {
+			return err
+		}
 		s.Loans[loanID] = loan
 		a.LoanID = loanID
-		s.ActiveDebt += q.Amount
+		s.ActiveDebt, err = checkedAdd(s.ActiveDebt, q.Amount)
+		if err != nil {
+			return err
+		}
 		s.Processed[q.RequestID] = true
 		return nil
 	})
 }
 
-func sameTranches(a, b []Tranche) bool {
+func sameQuote(a, b Quote) bool {
+	if b.RequestedAmount == 0 {
+		b.RequestedAmount = b.Amount
+	}
+	if b.RequestedCollateralFXRP == 0 {
+		b.RequestedCollateralFXRP = b.CollateralFXRP
+	}
 	aa, _ := json.Marshal(a)
 	bb, _ := json.Marshal(b)
 	return string(aa) == string(bb)
@@ -321,9 +363,17 @@ func (e *Engine) RiskTick(price Price, operationID string) error {
 		s.Price = price
 		for _, l := range s.Loans {
 			if l.Status != "closed" && l.Status != "liquidated" {
-				accrue(l, e.clock().Unix())
-				updateRisk(l, price.XRPUSDE6, e.clock().Unix())
-				if l.Status == "liquidatable" && s.BackstopUSDT0 >= debt(l) {
+				if _, err := accrue(l, e.clock().Unix()); err != nil {
+					return err
+				}
+				if err := updateRisk(l, price.XRPUSDE6, e.clock().Unix()); err != nil {
+					return err
+				}
+				due, err := debt(l)
+				if err != nil {
+					return err
+				}
+				if l.Status == "liquidatable" && s.BackstopUSDT0 >= due {
 					if err := liquidateInState(s, l); err != nil {
 						return err
 					}
@@ -335,32 +385,74 @@ func (e *Engine) RiskTick(price Price, operationID string) error {
 	})
 }
 
-func accrue(l *Loan, now int64) uint64 {
+func accrue(l *Loan, now int64) (uint64, error) {
 	if now <= l.LastAccruedAt {
-		return l.AccruedInterestRay
+		return l.AccruedInterestRay, nil
 	}
 	elapsed := uint64(now - l.LastAccruedAt)
 	apr := uint64(l.BorrowerAPRBPS)
 	if now > l.MaturesAt+86400 {
-		apr += 300
+		var err error
+		apr, err = checkedAdd(apr, 300)
+		if err != nil {
+			return 0, err
+		}
 	}
-	l.AccruedInterestRay += l.Principal * apr * elapsed * Scale / (BPS * Year)
+	increment, err := mulDivBy(
+		[]uint64{l.Principal, apr, elapsed, Scale},
+		[]uint64{BPS, Year},
+		false,
+	)
+	if err != nil {
+		return 0, err
+	}
+	l.AccruedInterestRay, err = checkedAdd(l.AccruedInterestRay, increment)
+	if err != nil {
+		return 0, err
+	}
 	l.LastAccruedAt = now
-	return l.AccruedInterestRay
+	return l.AccruedInterestRay, nil
 }
 
-func debt(l *Loan) uint64 { return l.Principal + l.AccruedInterestRay/Scale }
+func debt(l *Loan) (uint64, error) {
+	return checkedAdd(l.Principal, l.AccruedInterestRay/Scale)
+}
 
-func updateRisk(l *Loan, price uint64, now int64) {
-	value := l.CollateralFXRP * price / Scale
-	d := debt(l)
+func updateRisk(l *Loan, price uint64, now int64) error {
+	value, err := mulDiv([]uint64{l.CollateralFXRP, price}, Scale, false)
+	if err != nil {
+		return err
+	}
+	d, err := debt(l)
+	if err != nil {
+		return err
+	}
 	if value == 0 {
 		l.Status = "liquidatable"
-		return
+		return nil
 	}
-	ltv := d * BPS / value
-	l.LastHealthFactorBPS = 6500 * BPS / ltv
-	l.LiquidationPriceE6 = d * BPS * Scale / (l.CollateralFXRP * 6500)
+	ltv, err := mulDiv([]uint64{d, BPS}, value, false)
+	if err != nil {
+		return err
+	}
+	if ltv == 0 {
+		l.LastHealthFactorBPS = ^uint64(0)
+		l.LiquidationPriceE6 = 0
+		l.Status = "healthy"
+		return nil
+	}
+	l.LastHealthFactorBPS, err = mulDiv([]uint64{6500, BPS}, ltv, false)
+	if err != nil {
+		return err
+	}
+	l.LiquidationPriceE6, err = mulDivBy(
+		[]uint64{d, BPS, Scale},
+		[]uint64{l.CollateralFXRP, 6500},
+		false,
+	)
+	if err != nil {
+		return err
+	}
 	switch {
 	case now > l.MaturesAt+86400 || ltv >= 6500:
 		l.Status = "liquidatable"
@@ -371,6 +463,7 @@ func updateRisk(l *Loan, price uint64, now int64) {
 	default:
 		l.Status = "healthy"
 	}
+	return nil
 }
 
 func (e *Engine) Repay(owner string, amount uint64, operationID string, expectedNonce uint64) error {
@@ -386,8 +479,13 @@ func (e *Engine) Repay(owner string, amount uint64, operationID string, expected
 		if l == nil {
 			return errors.New("no active loan")
 		}
-		accrue(l, e.clock().Unix())
-		due := debt(l)
+		if _, err := accrue(l, e.clock().Unix()); err != nil {
+			return err
+		}
+		due, err := debt(l)
+		if err != nil {
+			return err
+		}
 		if amount < due {
 			return errors.New("hackathon repayment must close the loan")
 		}
@@ -397,32 +495,12 @@ func (e *Engine) Repay(owner string, amount uint64, operationID string, expected
 		}
 		bal.Available -= due
 		a.Balances[AssetUSDT0] = bal
-		interest := due - l.Principal
-		var principalReturned uint64
-		var interestDistributed uint64
-		for _, t := range l.Tranches {
-			lender := account(s, t.Lender)
-			lb := lender.Balances[AssetUSDT0]
-			share := interest * t.Principal / l.Principal
-			lenderInterest := share * uint64(t.APRBPS) / uint64(l.BorrowerAPRBPS)
-			lb.Reserved -= t.Principal
-			lb.Available += t.Principal + lenderInterest
-			lender.Balances[AssetUSDT0] = lb
-			m := s.Mandates[t.MandateID]
-			m.AllocatedPrincipal -= t.Principal
-			m.InterestEarned += lenderInterest
-			if m.Available == 0 && m.AllocatedPrincipal == 0 {
-				m.Active = false
-			}
-			principalReturned += t.Principal
-			interestDistributed += share
-			s.ProtocolReserve += share - lenderInterest
+		interest, err := checkedSub(due, l.Principal)
+		if err != nil {
+			return err
 		}
-		if principalReturned != l.Principal {
-			return errors.New("tranche conservation failure")
-		}
-		if interestDistributed < interest {
-			s.ProtocolReserve += interest - interestDistributed
+		if err := distributeRepayment(s, l, interest); err != nil {
+			return err
 		}
 		fxrp := a.Balances[AssetFXRP]
 		fxrp.Reserved -= l.CollateralFXRP
@@ -471,11 +549,21 @@ func (e *Engine) SeedBackstop(amount uint64, operationID string) error {
 }
 
 func liquidateInState(s *State, l *Loan) error {
-	due := debt(l)
+	due, err := debt(l)
+	if err != nil {
+		return err
+	}
 	if s.BackstopUSDT0 < due {
 		return errors.New("backstop insufficient")
 	}
-	seize := due * Scale * BPS / (s.Price.XRPUSDE6 * 9500)
+	seize, err := mulDivBy(
+		[]uint64{due, Scale, BPS},
+		[]uint64{s.Price.XRPUSDE6, 9500},
+		false,
+	)
+	if err != nil {
+		return err
+	}
 	if seize > l.CollateralFXRP {
 		seize = l.CollateralFXRP
 	}
@@ -486,36 +574,81 @@ func liquidateInState(s *State, l *Loan) error {
 	fxrp.Reserved -= l.CollateralFXRP
 	fxrp.Available += l.CollateralFXRP - seize
 	borrower.Balances[AssetFXRP] = fxrp
-	interest := due - l.Principal
-	var principalReturned uint64
-	var interestDistributed uint64
-	for _, t := range l.Tranches {
-		lender := account(s, t.Lender)
-		lb := lender.Balances[AssetUSDT0]
-		share := interest * t.Principal / l.Principal
-		lenderInterest := share * uint64(t.APRBPS) / uint64(l.BorrowerAPRBPS)
-		lb.Reserved -= t.Principal
-		lb.Available += t.Principal + lenderInterest
-		lender.Balances[AssetUSDT0] = lb
-		m := s.Mandates[t.MandateID]
-		m.AllocatedPrincipal -= t.Principal
-		m.InterestEarned += lenderInterest
-		if m.Available == 0 && m.AllocatedPrincipal == 0 {
-			m.Active = false
-		}
-		principalReturned += t.Principal
-		interestDistributed += share
-		s.ProtocolReserve += share - lenderInterest
+	interest, err := checkedSub(due, l.Principal)
+	if err != nil {
+		return err
 	}
-	if principalReturned != l.Principal {
-		return errors.New("tranche conservation failure")
-	}
-	if interestDistributed < interest {
-		s.ProtocolReserve += interest - interestDistributed
+	if err := distributeRepayment(s, l, interest); err != nil {
+		return err
 	}
 	s.ActiveDebt -= l.Principal
 	borrower.LoanID = ""
 	l.Status = "liquidated"
+	return nil
+}
+
+func distributeRepayment(s *State, l *Loan, interest uint64) error {
+	var principalReturned uint64
+	var lenderInterestDistributed uint64
+	for _, t := range l.Tranches {
+		lender := account(s, t.Lender)
+		lb := lender.Balances[AssetUSDT0]
+		share, err := mulDiv([]uint64{interest, t.Principal}, l.Principal, false)
+		if err != nil {
+			return err
+		}
+		lenderInterest, err := mulDiv([]uint64{share, uint64(t.APRBPS)}, uint64(l.BorrowerAPRBPS), false)
+		if err != nil {
+			return err
+		}
+		lb.Reserved, err = checkedSub(lb.Reserved, t.Principal)
+		if err != nil {
+			return fmt.Errorf("returning lender reserved principal: %w", err)
+		}
+		returned, err := checkedAdd(t.Principal, lenderInterest)
+		if err != nil {
+			return err
+		}
+		lb.Available, err = checkedAdd(lb.Available, returned)
+		if err != nil {
+			return err
+		}
+		lender.Balances[AssetUSDT0] = lb
+		m := s.Mandates[t.MandateID]
+		if m == nil {
+			return errors.New("loan references missing mandate")
+		}
+		m.AllocatedPrincipal, err = checkedSub(m.AllocatedPrincipal, t.Principal)
+		if err != nil {
+			return fmt.Errorf("decreasing mandate allocation: %w", err)
+		}
+		m.InterestEarned, err = checkedAdd(m.InterestEarned, lenderInterest)
+		if err != nil {
+			return err
+		}
+		if m.Available == 0 && m.AllocatedPrincipal == 0 {
+			m.Active = false
+		}
+		principalReturned, err = checkedAdd(principalReturned, t.Principal)
+		if err != nil {
+			return err
+		}
+		lenderInterestDistributed, err = checkedAdd(lenderInterestDistributed, lenderInterest)
+		if err != nil {
+			return err
+		}
+	}
+	if principalReturned != l.Principal {
+		return errors.New("tranche conservation failure")
+	}
+	protocolSpread, err := checkedSub(interest, lenderInterestDistributed)
+	if err != nil {
+		return errors.New("lender interest exceeds borrower interest")
+	}
+	s.ProtocolReserve, err = checkedAdd(s.ProtocolReserve, protocolSpread)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
