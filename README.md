@@ -93,6 +93,8 @@ The live hackathon deployment uses:
 - [Coston2 deployment](docs/DEPLOYMENT_COSTON2.md)
 - [Live testnet runbook](docs/LIVE_TESTNET_RUNBOOK.md)
 - [Judge guide](docs/JUDGE_GUIDE.md)
+- [Five-minute demo script](docs/DEMO_SCRIPT.md)
+- [Summer Signal submission brief](docs/SUBMISSION.md)
 - [Known limitations](docs/KNOWN_LIMITATIONS.md)
 
 Quietline is a testnet hackathon application and has not been audited for
