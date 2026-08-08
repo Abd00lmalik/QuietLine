@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { readDeployment } from "./shared";
 
-const FCC_INSTRUCTION_FEE_WEI = 1_000_000n;
+const FCC_INSTRUCTION_FEE_WEI = 1_000_000_000_000n;
 const POLL_INTERVAL_MS = 2_000;
 
 type OperationalJob = {
@@ -35,7 +35,10 @@ async function waitForConfirmation(
 ) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const url = new URL("/operations/job", relayerUrl);
+    const url = new URL(
+      "operations/job",
+      `${relayerUrl.replace(/\/+$/u, "")}/`,
+    );
     url.searchParams.set("externalKey", externalKey);
     const response = await fetch(url, {
       headers: { "x-quietline-operations-key": operationsApiKey },

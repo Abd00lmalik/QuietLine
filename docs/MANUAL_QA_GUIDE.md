@@ -1,6 +1,6 @@
 # Quietline Manual End-to-End QA Guide
 
-Last verified: August 7, 2026
+Last verified: August 8, 2026
 
 This guide is the V2 acceptance suite for `https://quietline.vercel.app`. Do not
 run it against the public URL until the V2 parallel deployment has passed the
@@ -106,6 +106,9 @@ Expected result:
 
 If the token transaction confirms but FCC fails, Quietline must explicitly say the
 funds are in QuietVault and instruct the user not to submit the deposit again.
+If the QuietVault transaction itself reverts, no token deposit or private credit
+occurred. Only C2FLR gas was spent. Record the transaction hash instead of retrying
+until the error has been investigated.
 
 ## 7. Deposit USD₮0
 
@@ -267,6 +270,12 @@ Verify these inputs are rejected before funds move:
 - Mandate borrower cap exceeds mandate amount.
 - Repayment balance is below total debt.
 - FCC health is degraded or more than one production TEE is active.
+
+Operator check: verify the always-on relayer wallet has enough C2FLR for several
+FCC instructions. Coston2 gas prices can make a single instruction materially more
+expensive than a normal token transfer. The deployed keeper submits its periodic
+risk tick hourly; deposits and borrow requests submit their own immediate FCC
+instructions.
 
 ## 20. Responsive checks
 

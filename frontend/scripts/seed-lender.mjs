@@ -18,7 +18,7 @@ const relayerUrl = required("RELAYER_URL").replace(/\/+$/u, "");
 const rpcUrl = process.env.COSTON2_RPC_URL?.trim()
   || "https://coston2-api.flare.network/ext/C/rpc";
 const instructionFee = BigInt(
-  process.env.FCC_INSTRUCTION_FEE_WEI?.trim() || "1000000",
+  process.env.FCC_INSTRUCTION_FEE_WEI?.trim() || "1000000000000",
 );
 const operator = privateKeyToAccount(normalizePrivateKey(required("DEPLOYER_PRIVATE_KEY")));
 const borrowerKey = process.env.TEST_WALLET?.trim();

@@ -27,11 +27,12 @@ import type {
   PrivateStressView,
 } from "../lib/privateTypes";
 import { requestIdFromReceipt } from "../lib/receipts";
+import { assertSuccessfulReceipt } from "../lib/transactions";
 import { useQuietline } from "../store/useQuietline";
 import { erc20Abi, quietVaultAbi } from "../web3/abis";
 
 const instructionFee = BigInt(
-  import.meta.env.VITE_FCC_INSTRUCTION_FEE_WEI ?? "1000000",
+  import.meta.env.VITE_FCC_INSTRUCTION_FEE_WEI ?? "1000000000000",
 );
 
 const directRoutes = {
@@ -343,7 +344,9 @@ export function useVaultActions() {
         functionName: "approve",
         args: [config.vault, units],
       });
-      await clients.publicClient.waitForTransactionReceipt({ hash: approvalHash });
+      const approvalReceipt =
+        await clients.publicClient.waitForTransactionReceipt({ hash: approvalHash });
+      assertSuccessfulReceipt(approvalReceipt, "Token approval");
       onStage?.("depositing");
       const depositHash = await clients.wallet.writeContract({
         account: clients.account,
@@ -356,6 +359,7 @@ export function useVaultActions() {
       });
       const depositReceipt =
         await clients.publicClient.waitForTransactionReceipt({ hash: depositHash });
+      assertSuccessfulReceipt(depositReceipt, "QuietVault deposit");
       onStage?.("confirming");
       const requestId = requestIdFromReceipt(
         depositReceipt,
@@ -421,6 +425,7 @@ export function useVaultActions() {
       });
       const requestReceipt =
         await clients.publicClient.waitForTransactionReceipt({ hash: requestHash });
+      assertSuccessfulReceipt(requestReceipt, "QuietVault borrow request");
       onStage?.("computing");
       const requestId = requestIdFromReceipt(
         requestReceipt,
@@ -475,6 +480,7 @@ export function useVaultActions() {
         });
         const requestReceipt =
           await clients.publicClient.waitForTransactionReceipt({ hash: requestHash });
+        assertSuccessfulReceipt(requestReceipt, "QuietVault withdrawal request");
         const requestId = requestIdFromReceipt(
           requestReceipt,
           config.vault,

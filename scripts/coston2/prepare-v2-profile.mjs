@@ -94,8 +94,8 @@ writeEnv(resolve(root, "relayer", ".env.v2"), {
   RELAYER_PRIVATE_KEY: relayerKey,
   START_BLOCK: String(deployment.startBlock),
   POLL_INTERVAL_MS: "2000",
-  RISK_TICK_INTERVAL_MS: "60000",
-  FCC_INSTRUCTION_FEE_WEI: "1000000",
+  RISK_TICK_INTERVAL_MS: "3600000",
+  FCC_INSTRUCTION_FEE_WEI: "1000000000000",
   FRONTEND_ORIGIN: "https://quietline.vercel.app",
   LOG_LEVEL: "info",
 }, "Quietline Coston2 V2 relayer");

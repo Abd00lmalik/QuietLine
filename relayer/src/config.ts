@@ -15,8 +15,8 @@ const envSchema = z.object({
   RELAYER_PRIVATE_KEY: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
   START_BLOCK: z.coerce.bigint(),
   POLL_INTERVAL_MS: z.coerce.number().int().min(250).default(2_000),
-  RISK_TICK_INTERVAL_MS: z.coerce.number().int().min(30_000).default(60_000),
-  FCC_INSTRUCTION_FEE_WEI: z.coerce.bigint().default(1_000_000n),
+  RISK_TICK_INTERVAL_MS: z.coerce.number().int().min(30_000).default(3_600_000),
+  FCC_INSTRUCTION_FEE_WEI: z.coerce.bigint().default(1_000_000_000_000n),
 });
 
 export type Config = z.infer<typeof envSchema>;

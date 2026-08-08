@@ -66,7 +66,7 @@ Development:
 
 ```text
 VITE_RELAYER_URL=https://YOUR-PUBLIC-RELAYER
-VITE_FCC_INSTRUCTION_FEE_WEI=1000000
+VITE_FCC_INSTRUCTION_FEE_WEI=1000000000000
 ```
 
 `VITE_RELAYER_URL` must be the public HTTPS origin of the separately hosted

@@ -77,8 +77,8 @@ writeEnv(relayerPath, {
     existingRelayer.RELAYER_PRIVATE_KEY ?? "REPLACE_WITH_0X_64_HEX_PRIVATE_KEY",
   START_BLOCK: existingRelayer.START_BLOCK ?? "PENDING_CONTRACT_DEPLOYMENT",
   POLL_INTERVAL_MS: existingRelayer.POLL_INTERVAL_MS ?? "2000",
-  RISK_TICK_INTERVAL_MS: existingRelayer.RISK_TICK_INTERVAL_MS ?? "60000",
-  FCC_INSTRUCTION_FEE_WEI: existingRelayer.FCC_INSTRUCTION_FEE_WEI ?? "1000000",
+  RISK_TICK_INTERVAL_MS: existingRelayer.RISK_TICK_INTERVAL_MS ?? "3600000",
+  FCC_INSTRUCTION_FEE_WEI: existingRelayer.FCC_INSTRUCTION_FEE_WEI ?? "1000000000000",
   FRONTEND_ORIGIN: frontendOrigin,
   LOG_LEVEL: existingRelayer.LOG_LEVEL ?? "info",
 }, "Quietline Coston2 relayer");
@@ -88,7 +88,7 @@ writeEnv(frontendPath, {
   VITE_RELAYER_URL:
     existingFrontend.VITE_RELAYER_URL ?? "REPLACE_WITH_PUBLIC_RELAYER_URL",
   VITE_FCC_INSTRUCTION_FEE_WEI:
-    existingFrontend.VITE_FCC_INSTRUCTION_FEE_WEI ?? "1000000",
+    existingFrontend.VITE_FCC_INSTRUCTION_FEE_WEI ?? "1000000000000",
 }, "Quietline Coston2 frontend");
 
 writeEnv(fccPath, {
