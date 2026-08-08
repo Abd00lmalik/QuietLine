@@ -14,7 +14,7 @@ production assets.
 - FXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
 - USD₮0: `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F`
 - FCC extension: verify against the accepted V2 manifest
-- Active TEE signer: verify against the accepted V2 manifest and `/info`
+- Active TEE signer: `0xc8A1F9859bAA86c0b86eb6BC3f7930ABB36BF1cc`
 - Faucet: `https://faucet.flare.network/coston2`
 - Explorer: `https://coston2-explorer.flare.network`
 
@@ -116,6 +116,12 @@ Repeat the FXRP deposit flow with a small USD₮0 amount.
 
 Expected result: the wallet USD₮0 balance decreases and the private USD₮0 balance
 increases after FCC confirms the confidential credit.
+
+If an anchor confirmation races with this deposit, the relayer must verify the
+deposit record directly from QuietVault and recover the private credit exactly
+once. The activity may temporarily say the deposit is awaiting private credit.
+Do not submit a second deposit. The private balance should update automatically
+when recovery finishes.
 
 ## 8. Withdraw a private balance
 
@@ -233,7 +239,8 @@ The export is generated in the browser and is not uploaded by Quietline.
 
 ## 16. Repay and close
 
-1. Ensure the private USD₮0 balance covers total debt.
+1. Ensure the private USD₮0 balance covers total debt plus a small amount of
+   interest that may accrue while the action is signed and processed.
 2. If needed, deposit additional USD₮0 first.
 3. Click `Repay` or `Close position`.
 4. Review the full-close disclosure.
@@ -242,7 +249,9 @@ The export is generated in the browser and is not uploaded by Quietline.
 
 Expected result: the full debt is cleared, all FXRP collateral becomes privately
 available, the loan disappears, and the new root is anchored. Partial repayment is
-not supported in this release.
+not supported in this release. The signed amount is a full-close authorization;
+FCC calculates and deducts the exact debt at execution time, so interest accrued
+after the dashboard was rendered must not cause a stale-amount failure.
 
 ## 17. Test Activity
 
