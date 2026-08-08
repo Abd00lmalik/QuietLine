@@ -7,7 +7,7 @@ The August 2, 2026 hackathon release intentionally has these limits:
 - one active loan per private account;
 - full repayment only;
 - fixed 7, 14, and 30 day terms;
-- FTestXRP collateral and USD₮0 debt only;
+- FXRP collateral and USD₮0 debt only;
 - deterministic protocol backstop instead of an auction;
 - immutable TEE settlement signer;
 - no backstop withdrawal;
@@ -34,4 +34,5 @@ Operational limitations:
 - only one keeper-enabled relayer instance should run;
 - the official Coston2 simulated-TEE mode does not provide hardware-backed
   production confidentiality;
-- the reserved ngrok domain remains an external availability dependency.
+- the public `sslip.io` hostname, Caddy TLS gateway, VPS, and Coston2 indexer
+  remain external availability dependencies.

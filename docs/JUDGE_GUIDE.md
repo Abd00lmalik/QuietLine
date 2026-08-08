@@ -4,7 +4,7 @@
 
 Quietline is not a simulated privacy dashboard. The submitted application uses:
 
-- certified Coston2 FTestXRP and USD₮0;
+- certified Coston2 FXRP and USD₮0;
 - real QuietVault transactions and token custody;
 - real FTSOv2 XRP/USD observations;
 - real FCC direct and chain instruction paths;
@@ -22,8 +22,9 @@ payouts are public; terms, debt, lender mandates, and risk remain private.
 private mandate. Open the Coston2 transaction and point out that APR and terms
 are absent.
 
-**1:30-2:30** - Connect the borrower wallet, deposit FTestXRP, request a quote, and
-show the live confidential match and expiry.
+**1:30-2:30** - Connect the borrower wallet, deposit FXRP, request a quote, and
+show the live confidential multi-lender match and expiry. Request more than the
+eligible mandates can fund to demonstrate a private partial quote.
 
 **2:30-3:45** - Accept. Show the public request transaction, durable relayer
 stages, TEE-signed settlement, and USD₮0 arrival.
@@ -34,6 +35,17 @@ a private stress query without changing chain state.
 **4:30-5:00** - Open FCC information and the Coston2 manifest. Explain that the
 contract signer is derived from and permanently bound to the attested machine
 key.
+
+## Live V2 Verification
+
+- Application: `https://quietline.vercel.app`
+- FCC and relayer: `https://v2.43-157-63-199.sslip.io`
+- QuietVault: `0x1C53d0188bA554A23242A2822daBaB802698D511`
+- FCC extension: `66008`
+- Active signer: `0x2e1e5a0e2d4cEC0690790B008673Ed99e05455dC`
+
+The V1 contracts remain deployed as testnet history and are not used by the
+public application.
 
 ## What Is Not Claimed
 

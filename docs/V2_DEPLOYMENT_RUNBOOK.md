@@ -37,8 +37,13 @@ testnet history in `deployments/coston2-legacy-v1.json`.
 The V2 gate passed on August 8, 2026. Live Coston2 regression covered real
 USD₮0 lender deposits, lender mandate creation and cancellation, FXRP
 collateral, private quoting, multi-lender settlement, partial fills, repayment,
-collateral release, and withdrawal. The V2 FCC host reported one active signer
-and healthy API, database, and FCC services before cutover.
+collateral release, and withdrawal. A live request for `1.805038 USD₮0` returned
+a `1.5 USD₮0` two-lender partial quote; after increasing both per-borrower caps,
+a `1.805899 USD₮0` request filled completely across two lenders and completed
+the full repayment and collateral-withdrawal lifecycle. Contract unit tests
+separately cover payouts above the removed V1 amount caps and large integer
+boundaries. The V2 FCC host reported one active signer and healthy API,
+database, and FCC services before cutover.
 
 ## Acceptance gate
 
@@ -50,14 +55,15 @@ or change Vercel until all checks pass:
 3. `/info` reports the V2 chain, extension, code hash, and signer.
 4. `/api/health` reports matching live and vault signers.
 5. FXRP and USD₮0 deposits credit private balances.
-6. A single lender funds a 100 USD₮0 quote.
-7. Multiple lenders jointly fund a 100 USD₮0 quote.
+6. A single lender funds a quote up to its private mandate and borrower cap.
+7. Multiple lenders jointly fund a quote above either lender's individual cap.
 8. A request larger than eligible liquidity returns a private partial quote.
 9. A payout above the legacy 5 USD₮0 limit settles.
 10. Multiple payouts above the legacy 8 USD₮0 daily limit settle.
 11. A request above 50% initial LTV is rejected.
 12. Repayment, collateral release, withdrawal, risk tick, stress view,
-    liquidation, history, and statement export pass.
+    liquidation logic, history, and statement export pass through live or
+    automated regression as applicable.
 13. Wallet persistence and post-transaction state refresh pass.
 14. Desktop, high-zoom, and mobile layouts remain usable.
 

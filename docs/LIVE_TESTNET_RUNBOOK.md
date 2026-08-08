@@ -13,7 +13,7 @@ Never use the deployer wallet in the public judge flow.
 
 1. Confirm Coston2 chain ID 114 in the wallet.
 2. Confirm contract addresses against the active deployment manifest.
-3. Confirm relayer `/health` and FCC `/info`.
+3. Confirm relayer `/api/health` and FCC `/info`.
 4. Confirm FTSOv2 price age is below five minutes.
 5. Confirm the private backstop funding job is `confirmed`.
 

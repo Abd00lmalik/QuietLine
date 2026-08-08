@@ -18,7 +18,9 @@ The hackathon deployment uses one Tencent Cloud Lighthouse VM in Frankfurt:
 - machine: 2 vCPU, 4 GB RAM, and 2 GB swap;
 - boot disk: 60 GB SSD;
 - operating system: Ubuntu 24.04 x86-64 with Docker;
-- public endpoint: the reserved ngrok domain already registered on-chain.
+- V2 public endpoint: `https://v2.43-157-63-199.sslip.io`;
+- TLS gateway: Caddy with automatic certificates;
+- Compose project: `quietline-v2` in `/opt/quietline-v2`.
 
 Provision and deploy:
 
@@ -31,11 +33,10 @@ corepack pnpm hosting:ssh:deploy -- -HostName <server-ip>
 corepack pnpm hosting:ssh:cutover -- -HostName <server-ip>
 ```
 
-The SSH cutover exports the confidential TEE state and relayer database, starts
-the remote proxy and TEE behind the reserved ngrok domain, registers a fresh
-machine, verifies it, pauses the previous machine, and only then starts the
-remote relayer. If cutover fails before completion, the local stack is
-restarted automatically.
+The current V2 host runs Caddy, the relayer, tee-proxy, extension workload, and
+Redis as one isolated Compose project with persistent encrypted-ledger and
+SQLite volumes. The retained V1 project is separate and is not used by the
+public frontend.
 
 The Coston2 deployment uses a 30-minute background risk-tick interval. Borrow
 and quote actions still read the current FTSO price directly. Keep at least
@@ -51,9 +52,9 @@ to return `ok`. Secret environment files are installed with mode `0600`; the
 proxy config is mode `0640` for its non-root container group. None are added
 to the deployment archive.
 
-Redis uses append-only persistence, the extension uses
-`quietline-private-state-v2`, and the relayer uses
-`quietline-relayer-data`. Do not delete these Docker volumes.
+Redis uses append-only persistence. The V2 project uses dedicated Redis,
+private-state, relayer-data, and Caddy volumes. Do not delete or replace these
+volumes during a release.
 
 Moving the extension workload to a new host creates a fresh simulated TEE
 identity. The cutover command handles registration, QuietVault verification,
@@ -74,9 +75,10 @@ while live instructions exist.
 
 Health endpoints:
 
-- `GET /health`: API, database, and FCC reachability.
-- `GET /market`: real QuietVault testUSDT0 holdings and FTSOv2 XRP/USD.
-- `GET /attestation`: FCC proxy information.
+- `GET /api/health`: API, database, FCC reachability, and active signer count.
+- `GET /api/market`: real QuietVault USD₮0 holdings and FTSOv2 XRP/USD.
+- `GET /api/attestation`: FCC proxy information.
+- `GET /info`: direct FCC machine information from tee-proxy.
 - `GET /operations/job?externalKey=chain:<requestId>`: protected exact job
   status for deployment automation.
 
@@ -84,7 +86,7 @@ Health endpoints:
 
 Alert on:
 
-- `/health` degraded for more than two polling intervals;
+- `/api/health` degraded for more than two polling intervals;
 - any durable job in `failed`;
 - no root sequence advance after a known mutation;
 - FTSOv2 age approaching 300 seconds;

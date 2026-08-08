@@ -259,7 +259,8 @@ Verify these inputs are rejected before funds move:
 
 - Deposit amount is zero, negative, or above wallet balance.
 - Withdrawal exceeds the private balance.
-- Borrow is below `1` or above `5 USD₮0`.
+- Borrow amount is zero, exceeds 50% initial LTV, or cannot satisfy any
+  eligible lender mandate.
 - Starting LTV exceeds `50%`.
 - Quote is accepted after expiry.
 - Mandate APR is outside `6–20%`.

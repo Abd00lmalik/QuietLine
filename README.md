@@ -3,7 +3,7 @@
 **Private credit, settled on Flare.**
 
 Quietline is a live-only Coston2 confidential credit market. Borrowers deposit
-certified FTestXRP and borrow certified USD₮0 against lender mandates evaluated
+certified FXRP and borrow certified USD₮0 against lender mandates evaluated
 inside Flare Confidential Compute. Debt, terms, lender allocation, health, and
 liquidation remain in the confidential ledger. Deposits, payouts, withdrawals,
 addresses, and timing remain public.
@@ -26,7 +26,7 @@ integrations.
 
 ## Fixed Coston2 Assets
 
-- FTestXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
+- FXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
 - USD₮0: `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F`
 - FTSOv2: `0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d`
 - FlareTeeManager: `0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`
@@ -77,6 +77,13 @@ CORS policy.
 Vercel hosts the static React frontend only. The persistent Fastify relayer,
 SQLite job store, chain indexer, risk keeper, FCC proxy, and Confidential Space
 workload must run on long-lived infrastructure.
+
+The live hackathon deployment uses:
+
+- frontend: `https://quietline.vercel.app`;
+- V2 FCC and relayer gateway: `https://v2.43-157-63-199.sslip.io`;
+- QuietVault V2: `0x1C53d0188bA554A23242A2822daBaB802698D511`;
+- FCC extension V2: `66008`.
 
 ## Documentation
 
