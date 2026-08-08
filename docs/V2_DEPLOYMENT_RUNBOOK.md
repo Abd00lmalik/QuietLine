@@ -7,7 +7,7 @@ acceptance gate passes.
 ## Deployment files
 
 - Live V1 archive: `deployments/coston2-legacy-v1.json`
-- Current public application manifest: `deployments/coston2.json`
+- Current public application manifest: `deployments/coston2.json` (V2)
 - Parallel V2 manifest: `deployments/coston2-v2.json`
 
 All Coston2 contract administration scripts now target
@@ -28,8 +28,17 @@ V2 must have:
 7. A stable public HTTPS FCC endpoint that does not interrupt V1.
 8. Separately funded V2 vault liquidity and backstop.
 
-V1 confidential balances are not migrated. Test users deposit new testnet
-assets into V2.
+V1 confidential balances were not migrated. Test users deposit new testnet
+assets into V2. The V1 contracts and extension remain retained as immutable
+testnet history in `deployments/coston2-legacy-v1.json`.
+
+## Acceptance record
+
+The V2 gate passed on August 8, 2026. Live Coston2 regression covered real
+USD₮0 lender deposits, lender mandate creation and cancellation, FXRP
+collateral, private quoting, multi-lender settlement, partial fills, repayment,
+collateral release, and withdrawal. The V2 FCC host reported one active signer
+and healthy API, database, and FCC services before cutover.
 
 ## Acceptance gate
 

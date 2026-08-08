@@ -2,7 +2,7 @@
   "network": "coston2",
   "chainId": 114,
   "protocolVersion": 1,
-  "status": "legacy-live",
+  "status": "legacy-retained",
   "quietPolicy": "0x90dC7172b5a771A51AfA6dF0De09022Df674Ab5d",
   "quietVault": "0x0A7fF224174896A743B41491f0Ef8036B32Fc5E4",
   "extensionId": 65951,
