@@ -125,7 +125,7 @@ await runWithRetry("allow TEE version", "go", [
   "-a", addresses,
   "-c", rootEnv.COSTON2_RPC_URL,
   "-p", proxyUrl,
-  "-version", "quietline-v0.1.0",
+  "-version", "quietline-v0.1.1",
 ], common);
 await runWithRetry("set governance", "go", [
   "run", "./cmd/set-governance",

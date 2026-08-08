@@ -16,7 +16,7 @@ if (target !== "relayer") {
     "--build-arg",
     `SOURCE_DATE_EPOCH=${sourceDateEpoch}`,
     "-t",
-    "quietline-extension:v0.1.0",
+    "quietline-extension:v0.1.1",
     "extension",
   ]);
 }
@@ -26,7 +26,7 @@ if (target !== "extension") {
     "-f",
     "relayer/Dockerfile",
     "-t",
-    "quietline-relayer:v0.1.0",
+    "quietline-relayer:v0.1.1",
     ".",
   ], { cwd: root });
 }
