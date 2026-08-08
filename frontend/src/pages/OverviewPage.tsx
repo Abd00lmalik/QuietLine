@@ -104,6 +104,13 @@ function ConnectedOverview() {
   const marketPrice = (marketPriceE6 ?? 0) / 1_000_000;
   const positionTone = position ? statusTone(position.status) : "neutral";
   const positionLabel = position ? statusLabel(position.status) : "";
+  const settledBorrowNeedsRefresh =
+    !position &&
+    activities.some(
+      (item) =>
+        item.label === "Borrow request settled" &&
+        item.status === "complete",
+    );
   const navigate = useNavigate();
   const mode = useQuietline((state) => state.mode);
   const { refreshAccount } = usePrivateActions();
@@ -145,6 +152,19 @@ function ConnectedOverview() {
           <Button icon={Plus} onClick={() => setDepositOpen(true)}>Deposit</Button>
         </div>
       </div>
+
+      {settledBorrowNeedsRefresh ? (
+        <section className="settlement-recovery" aria-live="polite">
+          <div>
+            <Status tone="healthy">Settlement confirmed</Status>
+            <strong>Your public payout completed, but this browser still shows the older private snapshot.</strong>
+            <p>Refresh the confidential account once to reveal the active position. This is a read-only signature and will not submit another borrow transaction.</p>
+          </div>
+          <Button icon={RefreshCw} disabled={refreshing} onClick={() => void refresh()}>
+            Refresh settled position
+          </Button>
+        </section>
+      ) : null}
 
       <section className="portfolio-strip">
         <article>

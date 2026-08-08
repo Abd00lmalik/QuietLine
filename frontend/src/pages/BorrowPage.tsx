@@ -78,6 +78,7 @@ function BorrowWorkflow() {
   const [maxApr, setMaxApr] = useState("12");
   const [computing, setComputing] = useState(false);
   const [settlementStage, setSettlementStage] = useState(0);
+  const [settlementSynchronized, setSettlementSynchronized] = useState(true);
   const [quote, setQuote] = useState<PrivateQuote>();
   const [nowSeconds, setNowSeconds] = useState(() => Math.floor(Date.now() / 1000));
   const privateFxrp = useQuietline((state) => state.privateFxrp);
@@ -150,7 +151,7 @@ function BorrowWorkflow() {
     }
     setStep(3);
     try {
-      await acceptBorrow(quote, (stage) => {
+      const outcome = await acceptBorrow(quote, (stage) => {
         setSettlementStage(
           stage === "signing"
             ? 1
@@ -161,8 +162,15 @@ function BorrowWorkflow() {
                 : 5,
         );
       });
+      setSettlementSynchronized(outcome.synchronized);
       setSettlementStage(6);
-      if (notifications.payout) {
+      if (!outcome.synchronized) {
+        push({
+          tone: "warning",
+          title: "Credit settled; private view needs refresh",
+          body: `${quoteAmount.toFixed(2)} ${usdt0Symbol} was delivered. Use Refresh private position to decrypt the updated account; do not accept the quote again.`,
+        });
+      } else if (notifications.payout) {
         push({
           tone: "success",
           title: "Private credit line active",
@@ -323,7 +331,11 @@ function BorrowWorkflow() {
           <div className="settlement-panel__icon"><WalletCards size={28} /></div>
           <span className="section-kicker">Settlement</span>
           <h2>{settlementStage >= 6 ? "Your private credit line is active." : "Quietline is settling your request."}</h2>
-          <p>{settlementStage >= 6 ? `${quoteAmount.toFixed(2)} ${usdt0Symbol} has arrived in your wallet.` : "You can leave this screen. The relayer will continue from the durable job state."}</p>
+          <p>{settlementStage >= 6
+            ? settlementSynchronized
+              ? `${quoteAmount.toFixed(2)} ${usdt0Symbol} has arrived in your wallet.`
+              : `${quoteAmount.toFixed(2)} ${usdt0Symbol} has arrived. One read-only signature is required to reveal the updated private position.`
+            : "You can leave this screen. The relayer will continue from the durable job state."}</p>
           <ProgressSteps
             active={settlementStage}
             steps={[
@@ -335,7 +347,11 @@ function BorrowWorkflow() {
               `${usdt0Symbol} delivered`,
             ]}
           />
-          {settlementStage >= 6 ? <Button onClick={() => navigate("/app/position")}>View position <ArrowRight size={17} /></Button> : null}
+          {settlementStage >= 6 ? (
+            <Button onClick={() => navigate(settlementSynchronized ? "/app/position" : "/app")}>
+              {settlementSynchronized ? "View position" : "Refresh private position"} <ArrowRight size={17} />
+            </Button>
+          ) : null}
         </section>
       ) : null}
     </div>

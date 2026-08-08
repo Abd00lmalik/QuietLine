@@ -188,6 +188,14 @@ Expected result:
 - The allocated FXRP becomes private collateral.
 - Debt, APR, lender tranches, and risk state remain off-chain.
 
+If the public payout completes but the final private-account signature is rejected
+or interrupted, Quietline must still report settlement as successful. Overview
+shows `Settlement confirmed` and offers `Refresh settled position`. Sign that
+read-only refresh once to reveal the loan. Do not submit `Accept and borrow`
+again. Before sending a borrow transaction, Quietline also checks for a confirmed
+settlement from the same quote window and recovers the matching private loan
+instead of creating a duplicate request.
+
 ## 12. Test the Position page
 
 1. Verify Total debt, Borrower APR, Maturity, Collateral value, LTV, and Health factor.

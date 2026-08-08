@@ -12,6 +12,11 @@ import {
   waitForChainJob,
   waitForJob,
 } from "../lib/api";
+import {
+  accountContainsQuoteLoan,
+  findConfirmedBorrowForQuote,
+  isAlreadyProcessedError,
+} from "../lib/borrowSettlement";
 import { assetSymbol } from "@quietline/protocol";
 import {
   createActionDraft,
@@ -47,6 +52,13 @@ const directRoutes = {
 
 type DirectAction = keyof typeof directRoutes;
 type MutationTask<T> = () => Promise<T>;
+export type BorrowSettlementOutcome = {
+  requestHash?: Hex;
+  settlementHash?: Hex;
+  synchronized: boolean;
+  recovered: boolean;
+  synchronizationError?: string;
+};
 export type PrivateSessionStage =
   | "checking-account"
   | "creating-account"
@@ -404,10 +416,27 @@ export function useVaultActions() {
     (
       quote: PrivateQuote,
       onStage?: (stage: "signing" | "submitting" | "computing" | "settling") => void,
-    ) => serializeMutation(async () => {
+    ): Promise<BorrowSettlementOutcome> => serializeMutation(async () => {
       const clients = requireClients();
       await assertLiveFcc();
       const { config } = await protocolContext();
+      const priorSettlement = findConfirmedBorrowForQuote(
+        await listJobs(clients.sessionToken),
+        quote,
+      );
+      if (priorSettlement) {
+        const view = await refreshProcessedBorrow(refreshAccount);
+        if (accountContainsQuoteLoan(view, quote)) {
+          await synchronizePublicState(clients.sessionToken);
+          return {
+            ...(priorSettlement.txHash
+              ? { settlementHash: priorSettlement.txHash }
+              : {}),
+            synchronized: true,
+            recovered: true,
+          };
+        }
+      }
       onStage?.("signing");
       const prepared = await prepare("BORROW_ACCEPT", {
         quote,
@@ -432,17 +461,41 @@ export function useVaultActions() {
         config.vault,
         "ConfidentialRequestSubmitted",
       );
-      await waitForChainJob(requestId, clients.sessionToken);
+      let completed;
+      try {
+        completed = await waitForChainJob(requestId, clients.sessionToken);
+      } catch (error) {
+        if (!isAlreadyProcessedError(error)) throw error;
+        const view = await refreshProcessedBorrow(refreshAccount);
+        if (!accountContainsQuoteLoan(view, quote)) throw error;
+        await synchronizePublicState(clients.sessionToken);
+        return {
+          requestHash,
+          synchronized: true,
+          recovered: true,
+        };
+      }
       onStage?.("settling");
-      await refreshAfterNonceAdvance(refreshAccount);
+      let synchronizationError: string | undefined;
+      try {
+        await refreshAfterNonceAdvance(refreshAccount);
+      } catch (error) {
+        synchronizationError = messageFor(error);
+      }
       await synchronizePublicState(clients.sessionToken);
       addPublicActivity({
         label: `${assetSymbol("USDT0")} borrow payout`,
         detail: `${(quote.amount / 1_000_000).toFixed(4)} ${assetSymbol("USDT0")} settled from QuietVault`,
         status: "complete",
-        txHash: requestHash,
+        txHash: completed.txHash ?? requestHash,
       });
-      return requestHash;
+      return {
+        requestHash,
+        ...(completed.txHash ? { settlementHash: completed.txHash } : {}),
+        synchronized: synchronizationError === undefined,
+        recovered: false,
+        ...(synchronizationError ? { synchronizationError } : {}),
+      };
     }),
     [
       addPublicActivity,
@@ -528,6 +581,20 @@ async function refreshAfterNonceAdvance(
   refresh: (overrides?: { nonce?: number }) => Promise<PrivateAccountView>,
 ) {
   const current = useQuietline.getState().accountNonce;
+  useQuietline.getState().incrementAccountNonce();
+  return refresh({ nonce: current + 1 });
+}
+
+async function refreshProcessedBorrow(
+  refresh: (overrides?: { nonce?: number }) => Promise<PrivateAccountView>,
+) {
+  const current = useQuietline.getState().accountNonce;
+  try {
+    const view = await refresh({ nonce: current });
+    return view;
+  } catch (error) {
+    if (!messageFor(error).toLowerCase().includes("nonce")) throw error;
+  }
   useQuietline.getState().incrementAccountNonce();
   return refresh({ nonce: current + 1 });
 }
