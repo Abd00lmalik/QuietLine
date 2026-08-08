@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +18,6 @@ import (
 )
 
 type Extension struct {
-	processMu  sync.Mutex
 	Server     *http.Server
 	cfg        config.Config
 	store      *ledger.Store
@@ -73,9 +71,7 @@ func (e *Extension) actionHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "decoding action: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	e.processMu.Lock()
 	status, body := e.processAction(action)
-	e.processMu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
@@ -133,6 +129,9 @@ func (e *Extension) processDirect(action teetypes.Action) (int, []byte) {
 	}
 	if di.OPCommand == teeutils.ToHash(config.OPRecoverAnchor) {
 		return e.handleAnchorRecovery(action, df)
+	}
+	if di.OPCommand == teeutils.ToHash(config.OPRecoverDeposit) {
+		return e.handleDepositRecovery(action, df, di.Message)
 	}
 	plain, err := e.decrypt(di.Message)
 	if err != nil {

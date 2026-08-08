@@ -39,6 +39,13 @@ export type ChainInstruction = {
   blockNumber: bigint;
 };
 
+export type DepositRecord = {
+  depositId: Hex;
+  account: Address;
+  token: Address;
+  amount: string;
+};
+
 const abi = parseAbi([
   "function executeSettlement((uint8 protocolVersion,uint8 settlementType,address account,address token,uint256 amount,address destination,bytes32 requestId,bytes32 settlementId,uint64 previousSequence,uint64 nextSequence,bytes32 previousRoot,bytes32 nextRoot,uint64 deadline) settlement,bytes signature)",
   "function usedSettlementId(bytes32 settlementId) view returns (bool)",
@@ -248,6 +255,32 @@ export class ChainClient {
         blockNumber: log.blockNumber,
       })),
     ].sort((a, b) => Number(a.blockNumber - b.blockNumber));
+  }
+
+  async depositForRequest(requestId: Hex, blockNumber: bigint): Promise<DepositRecord> {
+    const logs = await this.publicClient.getLogs({
+      address: this.cfg.QUIET_VAULT as Address,
+      event: depositEvent,
+      fromBlock: blockNumber,
+      toBlock: blockNumber,
+    });
+    const match = logs.find(
+      (log) => log.args.requestId?.toLowerCase() === requestId.toLowerCase(),
+    );
+    if (
+      !match?.args.depositId ||
+      !match.args.account ||
+      !match.args.token ||
+      match.args.amount === undefined
+    ) {
+      throw new Error(`deposit record for request ${requestId} was not found on-chain`);
+    }
+    return {
+      depositId: match.args.depositId,
+      account: match.args.account,
+      token: match.args.token,
+      amount: match.args.amount.toString(),
+    };
   }
 }
 

@@ -10,6 +10,8 @@ const actionId = `0x${"a".repeat(64)}` as Hex;
 const confirmationId = `0x${"b".repeat(64)}` as Hex;
 const txHash = `0x${"c".repeat(64)}` as Hex;
 const recoveryId = `0x${"1".repeat(64)}` as Hex;
+const depositRecoveryId = `0x${"2".repeat(64)}` as Hex;
+const depositId = `0x${"3".repeat(64)}` as Hex;
 
 const anchor: Anchor = {
   settlement: {
@@ -206,6 +208,82 @@ describe("Orchestrator", () => {
       sequence: anchor.settlement.nextSequence,
       root: anchor.settlement.nextRoot,
     });
+    store.close();
+  });
+
+  it("recovers a verified deposit when the prior anchor was already cleared", async () => {
+    const store = new Store(":memory:");
+    const recoveredAnchor: Anchor = {
+      ...anchor,
+      settlement: {
+        ...anchor.settlement,
+        requestId: depositRecoveryId,
+        settlementId: `0x${"4".repeat(64)}`,
+      },
+    };
+    const fcc = {
+      submitJson: vi
+        .fn()
+        .mockResolvedValueOnce(recoveryId)
+        .mockResolvedValueOnce(depositRecoveryId)
+        .mockResolvedValueOnce(confirmationId),
+      poll: vi
+        .fn()
+        .mockResolvedValueOnce({
+          result: {
+            status: 0,
+            log: "error: previous confidential mutation is awaiting on-chain anchor",
+          },
+        })
+        .mockResolvedValueOnce({
+          result: {
+            status: 0,
+            log: "error: no confidential anchor is pending",
+          },
+        })
+        .mockResolvedValueOnce({
+          result: {
+            status: 1,
+            log: "ok",
+            data: stringToHex(JSON.stringify({ anchor: recoveredAnchor })),
+          },
+        })
+        .mockResolvedValueOnce({ result: { status: 1, log: "ok" } }),
+      decode: vi.fn((data: Hex) =>
+        JSON.parse(Buffer.from(data.slice(2), "hex").toString()),
+      ),
+    };
+    const deposit = {
+      depositId,
+      account,
+      token: "0x2222222222222222222222222222222222222222" as Address,
+      amount: "20000000",
+    };
+    const chain = {
+      depositForRequest: vi.fn().mockResolvedValue(deposit),
+      execute: vi.fn().mockResolvedValue(txHash),
+    };
+    const orchestrator = new Orchestrator(
+      store,
+      fcc as unknown as FccClient,
+      chain as unknown as ChainClient,
+    );
+
+    const job = orchestrator.enqueueChain(
+      account,
+      "DEPOSIT",
+      actionId,
+      33782005n,
+      `chain:${actionId}`,
+    );
+    await orchestrator.idle();
+
+    const completed = store.getJob(job.id);
+    expect(completed?.status).toBe("confirmed");
+    expect(completed?.txHash).toBe(txHash);
+    expect(chain.depositForRequest).toHaveBeenCalledWith(actionId, 33782005n);
+    expect(fcc.submitJson).toHaveBeenNthCalledWith(2, "RECOVER_DEPOSIT", deposit);
+    expect(chain.execute).toHaveBeenCalledWith(recoveredAnchor);
     store.close();
   });
 });

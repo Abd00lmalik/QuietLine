@@ -91,13 +91,13 @@ func TestAcceptanceCanonicalizesBorrowerAndRefreshesPrice(t *testing.T) {
 	seedCanonical(t, e, *now)
 	q, err := e.QuoteAtPrice(
 		QuoteRequest{
-			ID: "quote-canonical",
-			Borrower: "0xBorrower",
-			Amount: 3 * Scale,
-			TermDays: 14,
-			MaxAPRBPS: 1200,
+			ID:             "quote-canonical",
+			Borrower:       "0xBorrower",
+			Amount:         3 * Scale,
+			TermDays:       14,
+			MaxAPRBPS:      1200,
 			CollateralFXRP: 10 * Scale,
-			ExpiresAt: now.Add(5 * time.Minute).Unix(),
+			ExpiresAt:      now.Add(5 * time.Minute).Unix(),
 		},
 		Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()},
 	)
@@ -480,6 +480,46 @@ func TestEncryptedPersistenceSurvivesRestartAndRejectsDuplicates(t *testing.T) {
 	confirmPending(t, recovered)
 	if err := recovered.Deposit("0xAlice", AssetFXRP, 7*Scale, "deposit-once"); !errors.Is(err, ErrDuplicate) {
 		t.Fatalf("expected duplicate rejection, got %v", err)
+	}
+}
+
+func TestMutationWaitsForAnchorConfirmation(t *testing.T) {
+	e, _, _ := newTestEngine(t)
+	e.anchorWaitTimeout = time.Second
+	if err := e.Deposit("0xAlice", AssetUSDT0, Scale, "deposit-first"); err != nil {
+		t.Fatal(err)
+	}
+
+	result := make(chan error, 1)
+	go func() {
+		result <- e.Deposit("0xAlice", AssetUSDT0, 2*Scale, "deposit-second")
+	}()
+	time.Sleep(20 * time.Millisecond)
+	confirmPending(t, e)
+
+	if err := <-result; err != nil {
+		t.Fatalf("waiting mutation failed after anchor confirmation: %v", err)
+	}
+	state := e.State()
+	if got := state.Accounts["0xalice"].Balances[AssetUSDT0].Available; got != 3*Scale {
+		t.Fatalf("unexpected balance after serialized deposits: %d", got)
+	}
+	if state.PendingAnchor == nil || state.PendingAnchor.OperationID != "deposit-second" {
+		t.Fatalf("second mutation did not produce its own anchor: %+v", state.PendingAnchor)
+	}
+}
+
+func TestMutationReturnsAnchorPendingAfterWaitTimeout(t *testing.T) {
+	e, _, _ := newTestEngine(t)
+	e.anchorWaitTimeout = 10 * time.Millisecond
+	if err := e.Deposit("0xAlice", AssetUSDT0, Scale, "deposit-first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Deposit("0xAlice", AssetUSDT0, Scale, "deposit-timeout"); !errors.Is(err, ErrAnchorPending) {
+		t.Fatalf("expected anchor timeout, got %v", err)
+	}
+	if got := e.State().Accounts["0xalice"].Balances[AssetUSDT0].Available; got != Scale {
+		t.Fatalf("timed-out mutation changed private balance: %d", got)
 	}
 }
 

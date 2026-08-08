@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	Version           = "0.1.0"
+	Version           = "0.1.1"
 	OPTypeCredit      = "CREDIT"
 	OPDeposit         = "DEPOSIT"
 	OPBorrowAccept    = "BORROW_ACCEPT"
@@ -28,6 +28,7 @@ const (
 	OPStressQuery     = "STRESS_QUERY"
 	OPAnchorConfirmed = "ANCHOR_CONFIRMED"
 	OPRecoverAnchor   = "RECOVER_ANCHOR"
+	OPRecoverDeposit  = "RECOVER_DEPOSIT"
 )
 
 type Config struct {

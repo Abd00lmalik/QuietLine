@@ -109,12 +109,13 @@ export class Orchestrator {
 
   private async process(initial: Job) {
     let job = initial;
+    let payload: DirectPayload | ChainPayload | undefined;
     try {
       job = this.update(job.id, {
         attempts: job.attempts + 1,
         error: undefined,
       });
-      const payload = parsePayload(job.payload);
+      payload = parsePayload(job.payload);
       const tag: SubmissionTag = payload.source === "direct" ? "submit" : "threshold";
 
       if (!job.actionId) {
@@ -151,9 +152,18 @@ export class Orchestrator {
       job = this.update(job.id, { txHash, status: "confirming" });
       this.update(job.id, { status: "confirmed" });
     } catch (error) {
-      if (isPendingAnchorError(error)) {
+      if (isPendingAnchorError(error) && payload) {
         try {
-          await this.recoverPendingAnchor();
+          await this.recoverPendingAnchorAllowingAlreadyCleared();
+          if (payload.source === "chain" && payload.command === "DEPOSIT") {
+            const recovery = await this.recoverDeposit(payload);
+            this.update(job.id, {
+              status: "confirmed",
+              response: recovery.response,
+              ...(recovery.txHash ? { txHash: recovery.txHash } : {}),
+            });
+            return;
+          }
           this.update(job.id, {
             status: "failed",
             error: "A prior confidential checkpoint was recovered. Retry this request.",
@@ -172,6 +182,40 @@ export class Orchestrator {
         error: errorMessage(error),
       });
     }
+  }
+
+  private async recoverPendingAnchorAllowingAlreadyCleared() {
+    try {
+      await this.recoverPendingAnchor();
+    } catch (error) {
+      if (!errorMessage(error).includes("no confidential anchor is pending")) {
+        throw error;
+      }
+    }
+  }
+
+  private async recoverDeposit(payload: ChainPayload) {
+    const deposit = await this.chain.depositForRequest(
+      payload.requestId,
+      BigInt(payload.blockNumber),
+    );
+    const recoveryId = await this.fcc.submitJson("RECOVER_DEPOSIT", deposit);
+    const recovery = await this.fcc.poll(recoveryId, "submit");
+    if (recovery.result.status !== 1) {
+      throw new Error(
+        recovery.result.log ||
+          `deposit recovery returned status ${recovery.result.status}`,
+      );
+    }
+    const response = recovery.result.data
+      ? this.fcc.decode<MutationResponse>(recovery.result.data)
+      : undefined;
+    const anchor = findAnchor(response);
+    if (!anchor) {
+      return { response };
+    }
+    const txHash = await this.settleAnchor(anchor);
+    return { response, txHash };
   }
 
   private async recoverPendingAnchor() {

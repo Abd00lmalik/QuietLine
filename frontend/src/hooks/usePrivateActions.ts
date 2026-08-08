@@ -264,9 +264,11 @@ export function usePrivateActions() {
   );
 
   const repay = useCallback(
-    (amount: number) => serializeMutation(async () => {
+    (_amount: number) => serializeMutation(async () => {
       await direct<void>("APPLY_REPAYMENT", {
-        amount: toUnits(amount),
+        // This authorizes a full close. FCC calculates and debits the exact
+        // accrued debt at execution time, so quote drift cannot strand a loan.
+        amount: Number.MAX_SAFE_INTEGER,
         operationId: crypto.randomUUID(),
       });
       incrementNonce();

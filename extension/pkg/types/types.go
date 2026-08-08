@@ -48,6 +48,12 @@ type AnchorConfirmedPayload struct {
 	Sequence uint64 `json:"sequence"`
 	Root     string `json:"root"`
 }
+type RecoverDepositPayload struct {
+	DepositID common.Hash    `json:"depositId"`
+	Account   common.Address `json:"account"`
+	Token     common.Address `json:"token"`
+	Amount    uint64         `json:"amount,string"`
+}
 
 type Settlement struct {
 	ProtocolVersion  uint8          `json:"protocolVersion"`

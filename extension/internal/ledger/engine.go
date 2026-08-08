@@ -21,10 +21,12 @@ var (
 )
 
 type Engine struct {
-	mu    sync.RWMutex
-	store *Store
-	state *State
-	clock func() time.Time
+	mu                sync.RWMutex
+	store             *Store
+	state             *State
+	clock             func() time.Time
+	anchorCleared     chan struct{}
+	anchorWaitTimeout time.Duration
 }
 
 func NewEngine(store *Store) (*Engine, error) {
@@ -32,7 +34,17 @@ func NewEngine(store *Store) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{store: store, state: state, clock: time.Now}, nil
+	anchorCleared := make(chan struct{})
+	if state.PendingAnchor == nil {
+		close(anchorCleared)
+	}
+	return &Engine{
+		store:             store,
+		state:             state,
+		clock:             time.Now,
+		anchorCleared:     anchorCleared,
+		anchorWaitTimeout: 20 * time.Second,
+	}, nil
 }
 
 func (e *Engine) State() State {
@@ -45,11 +57,29 @@ func (e *Engine) State() State {
 }
 
 func (e *Engine) mutate(kind, operationID string, fn func(*State) error) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.state.PendingAnchor != nil {
-		return ErrAnchorPending
+	deadline := time.Now().Add(e.anchorWaitTimeout)
+	for {
+		e.mu.Lock()
+		if e.state.PendingAnchor == nil {
+			break
+		}
+		wait := e.anchorCleared
+		e.mu.Unlock()
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return ErrAnchorPending
+		}
+		timer := time.NewTimer(remaining)
+		select {
+		case <-wait:
+			if !timer.Stop() {
+				<-timer.C
+			}
+		case <-timer.C:
+			return ErrAnchorPending
+		}
 	}
+	defer e.mu.Unlock()
 	b, _ := json.Marshal(e.state)
 	var next State
 	if err := json.Unmarshal(b, &next); err != nil {
@@ -69,10 +99,12 @@ func (e *Engine) mutate(kind, operationID string, fn func(*State) error) error {
 		PreviousRoot:     previousRoot,
 		NextRoot:         next.Root,
 	}
+	nextAnchorCleared := make(chan struct{})
 	if err := e.store.Commit(&next, kind); err != nil {
 		return fmt.Errorf("persisting mutation: %w", err)
 	}
 	e.state = &next
+	e.anchorCleared = nextAnchorCleared
 	return nil
 }
 
@@ -675,6 +707,7 @@ func (e *Engine) ConfirmAnchor(sequence uint64, root string) error {
 		return fmt.Errorf("persisting anchor confirmation: %w", err)
 	}
 	e.state = &next
+	close(e.anchorCleared)
 	return nil
 }
 
