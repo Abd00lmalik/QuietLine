@@ -57,17 +57,32 @@ function prefersReducedMotion() {
 /* ---------------------------------------------------------------- preloader */
 
 function Preloader() {
-  const [done, setDone] = useState(false);
+  // Under reduced motion (or SSR-less first paint), never mount the overlay.
+  const [done, setDone] = useState(() => prefersReducedMotion());
+  // Once `done`, keep the node one transition-length longer so the fade can
+  // play, then unmount entirely. Unmounting (not just a class/opacity toggle)
+  // guarantees the fixed full-screen layer can never be left covering the page.
+  const [removed, setRemoved] = useState(() => prefersReducedMotion());
+
   useEffect(() => {
-    if (prefersReducedMotion()) {
-      setDone(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setDone(true), 1000);
-    return () => window.clearTimeout(timer);
+    if (prefersReducedMotion()) return;
+    const finish = window.setTimeout(() => setDone(true), 900);
+    return () => window.clearTimeout(finish);
   }, []);
+
+  useEffect(() => {
+    if (!done) return;
+    const cleanup = window.setTimeout(() => setRemoved(true), 620);
+    return () => window.clearTimeout(cleanup);
+  }, [done]);
+
+  if (removed) return null;
+
   return (
-    <div className="ql-preloader" aria-hidden={done} role="status">
+    <div
+      className={`ql-preloader${done ? " ql-preloader--done" : ""}`}
+      aria-hidden="true"
+    >
       <div className="ql-preloader__mark">
         <span className="ql-preloader__glyph">Q</span>
         <span className="ql-preloader__word">Quietline</span>
