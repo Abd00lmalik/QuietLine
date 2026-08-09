@@ -1,0 +1,1272 @@
+/* Quietline landing page
+ * Self-contained, ql- namespaced. Reuses global design tokens from styles.css
+ * (--flare, --ink, --teal, --bg, etc.). Premium light-theme composition built
+ * with CSS 3D transforms + reveal utilities. No glow, gradient, or glass — the
+ * depth comes from Quietline's signature hard-offset shadows and 1px borders.
+ * All motion is opacity/transform only and is disabled under reduced motion. */
+
+.ql {
+  --ql-ink: var(--ink);
+  --ql-line: var(--border);
+  --ql-line-strong: var(--border-strong);
+  --ql-shadow: 18px 18px 0 var(--bg-strong);
+  --ql-shadow-sm: 10px 10px 0 var(--bg-strong);
+  --ql-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ql-gap: clamp(20px, 6vw, 130px);
+  position: relative;
+  background: var(--surface);
+  color: var(--ink);
+  overflow-x: clip;
+}
+
+.ql *,
+.ql *::before,
+.ql *::after {
+  box-sizing: border-box;
+}
+
+/* ---- Preloader ---------------------------------------------------------- */
+
+.ql-preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  transition: opacity 520ms var(--ql-ease), visibility 0s linear 520ms;
+}
+
+.ql-preloader--done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ql-preloader__mark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-weight: 700;
+  font-size: clamp(26px, 5vw, 40px);
+  letter-spacing: -0.01em;
+}
+
+.ql-preloader__glyph {
+  width: 1.5em;
+  height: 1.5em;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: #fff;
+  font-family: "Fira Code", monospace;
+  border-radius: 6px;
+  animation: ql-glyph-in 620ms var(--ql-ease) both;
+}
+
+.ql-preloader__word {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: ql-word-in 700ms var(--ql-ease) 120ms both;
+}
+
+.ql-preloader__bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left;
+  background: var(--flare);
+  animation: ql-bar 900ms var(--ql-ease) both;
+}
+
+@keyframes ql-glyph-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ql-word-in {
+  from { opacity: 0; clip-path: inset(0 100% 0 0); }
+  to { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+@keyframes ql-bar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* ---- Reveal utilities --------------------------------------------------- */
+
+.ql-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 640ms var(--ql-ease), transform 640ms var(--ql-ease);
+  transition-delay: var(--ql-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.ql-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---- Navigation --------------------------------------------------------- */
+
+.ql-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 20px;
+  height: 68px;
+  padding: 0 clamp(18px, 4vw, 72px);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 220ms var(--ql-ease), background-color 220ms var(--ql-ease);
+}
+
+.ql-nav--pinned {
+  border-bottom-color: var(--ql-line);
+}
+
+.ql-brand {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.ql-brand__mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--ink);
+  color: #fff;
+  font-family: "Fira Code", monospace;
+  font-size: 15px;
+}
+
+.ql-nav__links {
+  justify-self: center;
+  display: flex;
+  gap: 4px;
+}
+
+.ql-nav__links a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--ink-soft);
+  border-radius: var(--radius);
+  transition: color 160ms var(--ql-ease), background-color 160ms var(--ql-ease);
+}
+
+.ql-nav__links a:hover {
+  color: var(--ink);
+  background: var(--bg-strong);
+}
+
+.ql-nav__actions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ql-menu {
+  display: none;
+}
+
+/* ---- Hero --------------------------------------------------------------- */
+
+.ql-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(430px, 1.08fr);
+  gap: clamp(40px, 6vw, 92px);
+  align-items: center;
+  padding: clamp(56px, 8vw, 116px) clamp(18px, 6vw, 112px) clamp(60px, 7vw, 96px);
+  min-height: min(760px, calc(100dvh - 68px));
+  overflow: hidden;
+}
+
+.ql-hero__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--ql-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ql-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(120% 80% at 70% 30%, #000 0%, transparent 70%);
+  mask-image: radial-gradient(120% 80% at 70% 30%, #000 0%, transparent 70%);
+  opacity: 0.5;
+}
+
+.ql-hero__copy {
+  position: relative;
+  z-index: 1;
+}
+
+.ql-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid var(--ql-line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--teal);
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ql-eyebrow .ql-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--teal) 55%, transparent);
+  animation: ql-pulse 2.4s var(--ql-ease) infinite;
+}
+
+@keyframes ql-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--teal) 45%, transparent); }
+  70% { box-shadow: 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.ql-hero h1 {
+  margin: 20px 0 0;
+  font-size: clamp(58px, 8.5vw, 116px);
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.ql-hero h1 .ql-thin {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.ql-hero__tagline {
+  margin: 20px 0 18px;
+  font-family: "Fira Code", monospace;
+  font-size: clamp(18px, 2.2vw, 25px);
+  color: var(--ink-soft);
+}
+
+.ql-hero__body {
+  max-width: 560px;
+  font-size: clamp(16px, 1.5vw, 19px);
+  color: var(--muted);
+}
+
+.ql-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.ql-hero__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(20px, 3vw, 40px);
+  margin-top: 44px;
+  padding-top: 22px;
+  border-top: 1px solid var(--ql-line);
+}
+
+.ql-hero__facts > span {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ql-hero__facts strong {
+  font-family: "Fira Code", monospace;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+/* ---- Hero 3D stage ------------------------------------------------------ */
+
+.ql-stage {
+  position: relative;
+  z-index: 1;
+  perspective: 1600px;
+  perspective-origin: 60% 40%;
+}
+
+/* The card tilts on pointer move; CSS vars are driven from JS (rAF). */
+.ql-card3d {
+  --rx: 0deg;
+  --ry: 0deg;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 300ms var(--ql-ease);
+}
+
+.ql-card3d.is-tilting {
+  transition: transform 80ms linear;
+}
+
+/* Real account preview — reuses the app's visual language, not a screenshot. */
+.ql-ledger {
+  position: relative;
+  transform: translateZ(0);
+  padding: clamp(22px, 2.6vw, 34px);
+  background: var(--surface);
+  border: 1px solid var(--ql-line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--ql-shadow);
+}
+
+.ql-ledger__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ql-line);
+}
+
+.ql-ledger__head .ql-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--teal);
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ql-ledger__pair {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.ql-ledger__lines {
+  display: grid;
+}
+
+.ql-ledger__line {
+  display: grid;
+  grid-template-columns: 1fr auto 22px;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--ql-line);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ql-ledger__line strong {
+  font-family: "Fira Code", monospace;
+  color: var(--ink);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.ql-ledger__line svg {
+  color: var(--teal);
+  justify-self: end;
+}
+
+/* encrypted cipher shimmer on the "private" values */
+.ql-cipher {
+  position: relative;
+  overflow: hidden;
+  color: var(--ink-soft);
+}
+
+.ql-cipher::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--teal) 22%, transparent),
+    transparent
+  );
+  animation: ql-scan 3.4s var(--ql-ease) infinite;
+}
+
+@keyframes ql-scan {
+  0%, 100% { transform: translateX(-100%); }
+  55% { transform: translateX(200%); }
+}
+
+.ql-ledger__risk {
+  padding: 20px 0 4px;
+}
+
+.ql-ledger__risk-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ql-ledger__risk-head strong {
+  font-family: "Fira Code", monospace;
+  color: var(--ink);
+}
+
+.ql-track {
+  position: relative;
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--bg-strong);
+  overflow: hidden;
+}
+
+.ql-track span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--teal);
+  transform-origin: left;
+  animation: ql-fill 1200ms var(--ql-ease) both;
+}
+
+@keyframes ql-fill {
+  from { transform: scaleX(0); }
+}
+
+.ql-track i {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 14px;
+  background: var(--flare);
+}
+
+.ql-track-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* live pipeline: encrypt -> compute -> settle */
+.ql-pipe {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.ql-pipe__node {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 78px;
+  padding: 12px;
+  border: 1px solid var(--ql-line);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  transition: border-color 300ms var(--ql-ease), background-color 300ms var(--ql-ease), color 300ms var(--ql-ease);
+}
+
+.ql-pipe__node svg {
+  transition: color 300ms var(--ql-ease);
+}
+
+.ql-pipe__node[data-state="done"] {
+  color: var(--teal);
+  border-color: color-mix(in srgb, var(--teal) 42%, var(--ql-line));
+}
+.ql-pipe__node[data-state="done"] svg { color: var(--teal); }
+
+.ql-pipe__node[data-state="active"] {
+  color: var(--flare);
+  border-color: color-mix(in srgb, var(--flare) 42%, var(--ql-line));
+  background: var(--flare-soft);
+}
+.ql-pipe__node[data-state="active"] svg {
+  color: var(--flare);
+  animation: ql-blink 1.3s var(--ql-ease) infinite;
+}
+
+@keyframes ql-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ---- Floating coins (parallax) ------------------------------------------ */
+
+.ql-coin {
+  position: absolute;
+  z-index: 2;
+  width: var(--size, 64px);
+  height: var(--size, 64px);
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+.ql-coin img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 14px 30px rgba(22, 32, 28, 0.22);
+}
+
+.ql-coin__float {
+  width: 100%;
+  height: 100%;
+  animation: ql-bob var(--dur, 6s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes ql-bob {
+  0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
+  50% { transform: translateY(-14px) rotate(calc(var(--tilt, 0deg) * -1)); }
+}
+
+.ql-coin--fxrp { top: -34px; right: 8%; --size: 76px; }
+.ql-coin--usdt { bottom: -26px; left: -30px; --size: 62px; }
+.ql-coin--xrp2 { top: 42%; right: -34px; --size: 46px; opacity: 0.92; }
+
+/* blueprint annotation — a real structural label, not decoration */
+.ql-annot {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border: 1px dashed var(--ql-line-strong);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(3px);
+  font-family: "Fira Code", monospace;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.ql-annot .ql-tick {
+  width: 6px;
+  height: 6px;
+  border-left: 1px solid var(--flare);
+  border-bottom: 1px solid var(--flare);
+}
+
+.ql-annot--tl { top: -14px; left: -18px; }
+.ql-annot--br { bottom: 46px; right: -22px; }
+
+/* ---- Section scaffolding -------------------------------------------------- */
+
+.ql-section {
+  padding: clamp(72px, 9vw, 130px) clamp(18px, 6vw, 112px);
+}
+
+.ql-section--tight {
+  padding-top: clamp(44px, 6vw, 88px);
+  padding-bottom: clamp(44px, 6vw, 88px);
+}
+
+.ql-section--ink {
+  background: var(--ink);
+  color: #fff;
+}
+
+.ql-section__head {
+  max-width: 860px;
+}
+
+.ql-section__head h2 {
+  margin: 14px 0 16px;
+  font-size: clamp(32px, 4.6vw, 56px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+}
+
+.ql-section__head p {
+  max-width: 680px;
+  color: var(--muted);
+  font-size: clamp(16px, 1.5vw, 18px);
+}
+
+.ql-section--ink .ql-section__head p { color: #aab5b0; }
+
+/* ---- Proof strip ---------------------------------------------------------- */
+
+.ql-proof {
+  position: relative;
+  overflow: hidden;
+  border-block: 1px solid var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.ql-proof__row {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  min-height: 84px;
+  animation: ql-scroll 30s linear infinite;
+}
+
+.ql-proof__set {
+  display: flex;
+  align-items: center;
+  gap: clamp(36px, 6vw, 80px);
+  padding: 0 clamp(18px, 3vw, 40px);
+  flex: none;
+}
+
+.ql-proof__set span {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  white-space: nowrap;
+  color: #dfe6e3;
+}
+
+.ql-proof__set svg {
+  color: var(--teal);
+  flex: none;
+}
+
+.ql-proof__set strong {
+  font-family: "Fira Code", monospace;
+  font-weight: 600;
+  color: #fff;
+}
+
+@keyframes ql-scroll {
+  to { transform: translateX(-50%); }
+}
+
+/* ---- Feature grid --------------------------------------------------------- */
+
+.ql-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 56px;
+  background: var(--ql-line);
+  border: 1px solid var(--ql-line);
+}
+
+.ql-feature {
+  min-height: 300px;
+  padding: 32px;
+  background: var(--surface);
+}
+
+.ql-feature:nth-child(2) { background: var(--surface-muted); }
+
+.ql-feature__icon {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ql-line-strong);
+  border-radius: var(--radius);
+  color: var(--teal);
+}
+
+.ql-feature h3 {
+  margin: 44px 0 12px;
+  font-size: 22px;
+}
+
+.ql-feature p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.ql-feature a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--flare);
+}
+
+.ql-feature a svg { transition: transform 180ms var(--ql-ease); }
+.ql-feature a:hover svg { transform: translateX(3px); }
+
+/* ---- Privacy split (dark) -------------------------------------------------- */
+
+.ql-privacy {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(480px, 1.2fr);
+  gap: clamp(44px, 8vw, 120px);
+  background: var(--ink);
+  color: #fff;
+}
+
+.ql-privacy__intro {
+  align-self: start;
+  position: sticky;
+  top: 112px;
+}
+
+.ql-privacy__intro h2 {
+  margin: 14px 0 16px;
+  font-size: clamp(32px, 4.2vw, 50px);
+  line-height: 1.05;
+}
+
+.ql-privacy__intro p { color: #aab5b0; font-size: 16px; }
+
+.ql-privacy__rule {
+  margin-top: 34px;
+  padding-top: 20px;
+  border-top: 1px solid #3b4742;
+  font-family: "Fira Code", monospace;
+  font-size: 13px;
+  color: #aab5b0;
+}
+
+.ql-privacy__rule strong { color: #fff; font-weight: 600; }
+
+.ql-columns {
+  display: grid;
+  gap: 22px;
+}
+
+.ql-column {
+  border: 1px solid #3b4742;
+  padding: clamp(22px, 3vw, 32px);
+  background: #121715;
+}
+
+.ql-column header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.ql-column header > svg { flex: none; }
+
+.ql-column h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.ql-column ul {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 18px 0 0;
+  border-top: 1px solid #3b4742;
+}
+
+.ql-column li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 0;
+  color: #d5dcda;
+  font-size: 15px;
+}
+
+.ql-column li svg { flex: none; margin-top: 2px; }
+
+.ql-column--private header > svg,
+.ql-column--private li svg { color: #82c8c2; }
+.ql-column--public header > svg,
+.ql-column--public li svg { color: #77a9cf; }
+
+/* ---- How it works (a real sequence -> numbered) --------------------------- */
+
+.ql-flow {
+  list-style: none;
+  counter-reset: step;
+  margin: 56px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--ql-line);
+  border: 1px solid var(--ql-line);
+}
+
+.ql-flow li {
+  counter-increment: step;
+  position: relative;
+  min-height: 300px;
+  padding: 28px;
+  background: var(--surface);
+}
+
+.ql-flow li::before {
+  content: "0" counter(step);
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  font-family: "Fira Code", monospace;
+  font-size: 13px;
+  color: var(--border-strong);
+}
+
+.ql-flow__icon {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ql-line-strong);
+  border-radius: var(--radius);
+  color: var(--teal);
+}
+
+.ql-flow h3 { margin: 48px 0 10px; font-size: 21px; }
+.ql-flow p { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* connector arrow between steps */
+.ql-flow li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 50px;
+  right: -10px;
+  width: 18px;
+  height: 18px;
+  background: var(--surface);
+  border-top: 1px solid var(--ql-line-strong);
+  border-right: 1px solid var(--ql-line-strong);
+  transform: rotate(45deg);
+}
+
+/* ---- Interactive quote (signature) --------------------------------------- */
+
+.ql-quote {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 64px);
+  align-items: center;
+  margin-top: 52px;
+}
+
+.ql-quote__panel {
+  border: 1px solid var(--ql-line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--ql-shadow-sm);
+  overflow: hidden;
+}
+
+.ql-quote__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ql-line);
+  background: var(--surface-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ql-quote__head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+}
+
+.ql-quote__body { padding: clamp(20px, 3vw, 30px); }
+
+.ql-field { display: grid; gap: 8px; }
+.ql-field + .ql-field { margin-top: 20px; }
+
+.ql-field__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.ql-field__label .ql-avail {
+  font-family: "Fira Code", monospace;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.ql-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--ql-line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: border-color 160ms var(--ql-ease);
+}
+
+.ql-input:focus-within { border-color: var(--ink-soft); }
+
+.ql-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  font-family: "Fira Code", monospace;
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.ql-input input::-webkit-outer-spin-button,
+.ql-input input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.ql-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-strong);
+  outline-offset: 4px;
+}
+
+.ql-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--flare);
+  border: 3px solid var(--surface);
+  box-shadow: 0 1px 4px rgba(22, 32, 28, 0.3);
+  cursor: pointer;
+}
+
+.ql-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--flare);
+  border: 3px solid var(--surface);
+  cursor: pointer;
+}
+
+.ql-terms {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ql-term {
+  min-height: 44px;
+  border: 1px solid var(--ql-line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: "Fira Code", monospace;
+  font-size: 14px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: 160ms var(--ql-ease);
+}
+
+.ql-term:hover { border-color: var(--ink-soft); }
+.ql-term--active {
+  border-color: var(--flare);
+  background: var(--flare-soft);
+  color: var(--flare);
+}
+
+.ql-quote__out {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ql-line);
+  display: grid;
+  gap: 14px;
+}
+
+.ql-quote__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ql-quote__row strong {
+  font-family: "Fira Code", monospace;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.ql-quote__row--total strong { font-size: 20px; }
+
+.ql-quote__note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--teal-soft);
+  color: #0f5a5f;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.ql-quote__note svg { flex: none; margin-top: 1px; }
+
+.ql-quote__aside h2 { font-size: clamp(28px, 3.6vw, 44px); margin: 12px 0 14px; }
+.ql-quote__aside p { color: var(--muted); font-size: 16px; max-width: 460px; }
+
+/* ---- Sparkline data panel ------------------------------------------------- */
+
+.ql-data {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  margin-top: 52px;
+  background: var(--ql-line);
+  border: 1px solid var(--ql-line);
+}
+
+.ql-data__cell {
+  padding: 26px clamp(20px, 3vw, 34px);
+  background: var(--surface);
+}
+
+.ql-data__cell:nth-child(2n) { background: var(--surface-muted); }
+
+.ql-data__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.ql-data__value {
+  margin-top: 12px;
+  font-family: "Fira Code", monospace;
+  font-size: clamp(26px, 3.4vw, 38px);
+  letter-spacing: -0.01em;
+}
+
+.ql-data__value small { font-size: 15px; color: var(--muted); }
+
+.ql-spark { display: block; width: 100%; height: 52px; margin-top: 14px; }
+.ql-spark path { fill: none; stroke: var(--teal); stroke-width: 2; }
+.ql-spark--flare path { stroke: var(--flare); }
+.ql-spark .ql-spark__area { fill: color-mix(in srgb, var(--teal) 12%, transparent); stroke: none; }
+
+/* ---- FAQ ------------------------------------------------------------------ */
+
+.ql-faq {
+  display: grid;
+  grid-template-columns: 0.75fr 1.25fr;
+  gap: clamp(36px, 8vw, 110px);
+}
+
+.ql-faq__list { border-top: 1px solid var(--ql-line-strong); }
+
+.ql-faq details { border-bottom: 1px solid var(--ql-line-strong); }
+
+.ql-faq summary {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ql-faq summary::-webkit-details-marker { display: none; }
+.ql-faq summary svg { flex: none; color: var(--muted); transition: transform 200ms var(--ql-ease); }
+.ql-faq details[open] summary svg { transform: rotate(90deg); }
+.ql-faq p { margin: 0; padding: 0 40px 24px 0; color: var(--muted); }
+
+/* ---- CTA ------------------------------------------------------------------ */
+
+.ql-cta {
+  margin: 0 clamp(18px, 5vw, 90px) clamp(56px, 7vw, 96px);
+  padding: clamp(40px, 6vw, 80px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  background: var(--bg-strong);
+  border-radius: var(--radius);
+  border-top: 4px solid var(--flare);
+}
+
+.ql-cta__kicker {
+  color: var(--flare);
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.ql-cta h2 { margin: 12px 0 12px; font-size: clamp(30px, 4vw, 48px); }
+.ql-cta p { margin: 0; color: var(--ink-soft); max-width: 540px; }
+
+/* ---- Footer --------------------------------------------------------------- */
+
+.ql-footer {
+  display: grid;
+  grid-template-columns: 1fr auto minmax(220px, 0.5fr);
+  gap: clamp(28px, 6vw, 70px);
+  padding: 52px clamp(18px, 6vw, 100px);
+  background: var(--ink);
+  color: #fff;
+}
+
+.ql-footer__col { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.ql-footer__col > span { font-weight: 700; margin-bottom: 6px; }
+.ql-footer p, .ql-footer a { margin: 0; color: #aeb8b4; }
+.ql-footer a { min-height: 44px; display: inline-flex; align-items: center; }
+.ql-footer a:hover { color: #fff; }
+.ql-footer .ql-brand { color: #fff; }
+.ql-footer .ql-brand__mark { background: #fff; color: var(--ink); }
+
+/* ---- Responsive ----------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .ql-hero {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+  .ql-features { grid-template-columns: repeat(2, 1fr); }
+  .ql-flow { grid-template-columns: repeat(2, 1fr); }
+  .ql-flow li:nth-child(2)::after { display: none; }
+  .ql-privacy { grid-template-columns: 1fr; }
+  .ql-privacy__intro { position: static; }
+  .ql-data { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 960px) {
+  .ql-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding-top: 84px;
+  }
+  .ql-stage { max-width: 560px; }
+  .ql-features { grid-template-columns: 1fr; }
+  .ql-quote { grid-template-columns: 1fr; }
+  .ql-quote__aside { order: -1; }
+  .ql-faq { grid-template-columns: 1fr; }
+  .ql-coin--fxrp { right: 4%; }
+}
+
+@media (max-width: 720px) {
+  .ql-nav { grid-template-columns: 1fr auto; padding: 0 16px; }
+  .ql-nav__links {
+    position: fixed;
+    top: 68px;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    padding: 10px 16px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--ql-line);
+    box-shadow: 0 18px 40px rgba(20, 28, 25, 0.12);
+    transform: translateY(-8px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 200ms var(--ql-ease), transform 200ms var(--ql-ease), visibility 0s linear 200ms;
+  }
+  .ql-nav__links--open {
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+  .ql-nav__links a { min-height: 48px; width: 100%; padding: 0 12px; }
+  .ql-menu { display: inline-flex; }
+  .ql-nav__actions > .ql-nav__cta { display: none; }
+
+  .ql-hero { padding: 72px 16px 56px; }
+  .ql-hero__facts { gap: 18px; }
+  .ql-features, .ql-flow { border-left: 0; border-right: 0; }
+  .ql-data { grid-template-columns: 1fr; }
+  .ql-cta { flex-direction: column; align-items: flex-start; margin-inline: 0; border-radius: 0; }
+  .ql-footer { grid-template-columns: 1fr; gap: 30px; }
+
+  .ql-coin--fxrp { --size: 58px; top: -22px; }
+  .ql-coin--usdt { --size: 50px; left: -12px; }
+  .ql-coin--xrp2 { display: none; }
+  .ql-annot { display: none; }
+}
+
+@media (max-width: 420px) {
+  .ql-hero h1 { font-size: clamp(46px, 14vw, 58px); }
+  .ql-terms { grid-template-columns: 1fr; }
+}
+
+/* ---- Reduced motion ------------------------------------------------------- */
+/* A global reduce block already exists in styles.css; this adds structural
+ * fallbacks so nothing depends on transforms/animation that we switch off. */
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-reveal { opacity: 1; transform: none; }
+  .ql-card3d { transform: none !important; }
+  .ql-coin { position: absolute; }
+  .ql-coin__float,
+  .ql-cipher::after,
+  .ql-eyebrow .ql-pulse,
+  .ql-track span,
+  .ql-pipe__node[data-state="active"] svg { animation: none; }
+  .ql-proof__row { animation: none; width: auto; }
+  .ql-proof__set { flex-wrap: wrap; justify-content: center; }
+  .ql-proof__set:nth-child(2) { display: none; }
+  .ql-preloader { display: none; }
+}
+
+
+
+
+
