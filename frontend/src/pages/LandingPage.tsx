@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -14,9 +14,8 @@ import {
   X,
 } from "lucide-react";
 import { POLICY, assetSymbol } from "@quietline/protocol";
-import { AssetBadge, Button, HealthScale, PrivacyLabel, Status, ToastProvider, useToast } from "../components/ui";
-import fxrpLogo from "../assets/fxrp.svg";
-import usdtLogo from "../assets/usdt.svg";
+import { AssetBadge, Button, HealthScale, Status, ToastProvider, useToast } from "../components/ui";
+import { getMarket } from "../lib/api";
 import "./LandingPage.css";
 
 const fxrp = "FXRP";
@@ -92,47 +91,67 @@ function Preloader() {
   );
 }
 
-/* ------------------------------------------------------------ floating coin */
+/* ---------------------------------------------------------- live market data */
 
-const COIN_CONFIG = [
-  { asset: fxrp, className: "ql-coin--fxrp", dur: "6.2s", delay: "0s", tilt: "-8deg" },
-  { asset: usdt0, className: "ql-coin--usdt", dur: "7s", delay: "0.7s", tilt: "10deg" },
-  { asset: fxrp, className: "ql-coin--xrp2", dur: "5.4s", delay: "1.3s", tilt: "4deg" },
-] as const;
+type MarketSnapshot = {
+  xrpUsdE6: number;
+  updatedAt: number;
+  vaultUsdt0Balance: string;
+};
 
-function FloatingCoin({ config }: { config: (typeof COIN_CONFIG)[number] }) {
-  const node = useRef<HTMLSpanElement | null>(null);
+type MarketState =
+  | { status: "loading" }
+  | { status: "ready"; data: MarketSnapshot; stale: boolean }
+  | { status: "unavailable" };
+
+/**
+ * Read-only live market data for the landing page. Reuses the existing
+ * relayer `getMarket()` endpoint (the same source the app relies on) and
+ * polls on an interval. On a transient failure we keep showing the last
+ * real values marked stale; if we never loaded any, we show an honest
+ * "unavailable" state instead of inventing numbers.
+ */
+function useMarket(pollMs = 20_000): MarketState {
+  const [state, setState] = useState<MarketState>({ status: "loading" });
+
   useEffect(() => {
-    const el = node.current;
-    if (!el) return;
-    const parent = el.parentElement as HTMLElement | null;
-    if (!parent) return;
-    const speed = config.asset === fxrp ? 0.05 : 0.035;
-    let raf = 0;
-    const onScroll = () => {
-      const rect = parent.getBoundingClientRect();
-      const travel = (window.innerHeight - rect.top - rect.height) * speed;
-      el.style.transform = `translate3d(0, ${Math.max(0, travel)}px, 0)`;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const data = await getMarket();
+        if (!active) return;
+        setState({ status: "ready", data, stale: false });
+      } catch {
+        if (!active) return;
+        // Keep the last good values (flagged stale); only fall back to
+        // "unavailable" if we have nothing real to show yet.
+        setState((prev) =>
+          prev.status === "ready"
+            ? { status: "ready", data: prev.data, stale: true }
+            : { status: "unavailable" },
+        );
+      }
     };
-    raf = window.requestAnimationFrame(onScroll);
-    window.addEventListener("scroll", onScroll, { passive: true });
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), pollMs);
     return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
+      active = false;
+      window.clearInterval(timer);
     };
-  }, [config.asset]);
-  return (
-    <span
-      ref={node}
-      className={`ql-coin ${config.className}`}
-      style={{ "--dur": config.dur, "--delay": config.delay, "--tilt": config.tilt } as CSSProperties}
-      aria-hidden="true"
-    >
-      <span className="ql-coin__float">
-        <img src={config.asset === fxrp ? fxrpLogo : usdtLogo} alt="" />
-      </span>
-    </span>
-  );
+  }, [pollMs]);
+
+  return state;
+}
+
+/** A ticking "seconds ago" value, refreshed once per second. */
+function useSecondsSince(timestampSeconds: number | null): number | null {
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  if (timestampSeconds === null) return null;
+  return Math.max(0, now - timestampSeconds);
 }
 
 /* --------------------------------------------------------------- hero stage */
@@ -188,15 +207,15 @@ function HeroStage() {
   }, []);
 
   const nodes = [
-    { key: "encrypt", label: "Encrypt", detail: "private request sealed for FCC", icon: LockKeyhole },
-    { key: "compute", label: "Compute", detail: "terms evaluated inside TEE", icon: CloudCog },
-    { key: "settle", label: "Settle", detail: "payout anchors on Coston2", icon: Check },
+    { key: "encrypt", label: "Encrypt", detail: "request locked on your device", icon: LockKeyhole },
+    { key: "compute", label: "Compute", detail: "terms checked in a secure enclave", icon: CloudCog },
+    { key: "settle", label: "Settle", detail: "payout settles on Flare", icon: Check },
   ] as const;
   const [encryptDone, computeDone, settleDone] = [phase > 0, phase > 1, phase > 2];
 
   const handleRefresh = () => {
     if (prefersReducedMotion()) {
-      push({ tone: "info", title: "Live preview needs motion", body: "Enable motion to see the pipeline run." });
+      push({ tone: "info", title: "Live preview needs motion", body: "Enable motion to see the steps run." });
       return;
     }
     setPhase(0);
@@ -205,11 +224,8 @@ function HeroStage() {
 
   return (
     <div ref={wrap} className="ql-stage">
-      <FloatingCoin config={COIN_CONFIG[0]} />
-      <FloatingCoin config={COIN_CONFIG[1]} />
-      <FloatingCoin config={COIN_CONFIG[2]} />
       <div ref={card} className="ql-card3d">
-        <span className="ql-annot ql-annot--tl" aria-hidden="true"><span className="ql-tick" /> decrypts only in this session</span>
+        <span className="ql-annot ql-annot--tl" aria-hidden="true"><span className="ql-tick" /> visible only to you</span>
         <article className="ql-ledger" aria-label="Preview of your private Quietline account">
           <header className="ql-ledger__head">
             <div>
@@ -282,7 +298,7 @@ function HeroStage() {
             })}
           </div>
         </article>
-        <span className="ql-annot ql-annot--br" aria-hidden="true">vault settles on Coston2 <span className="ql-tick" /></span>
+        <span className="ql-annot ql-annot--br" aria-hidden="true">settles on Flare <span className="ql-tick" /></span>
       </div>
     </div>
   );
@@ -320,8 +336,8 @@ function QuotePreview() {
     <div className="ql-quote">
       <div className="ql-quote__panel">
         <header className="ql-quote__head">
-          <span><LockKeyhole size={14} /> Confidential quote</span>
-          <span><Sparkles size={14} /> FCC computes</span>
+          <span><LockKeyhole size={14} /> Private quote</span>
+          <span><Sparkles size={14} /> Computed privately</span>
         </header>
         <div className="ql-quote__body">
           <div className="ql-field">
@@ -373,22 +389,23 @@ function QuotePreview() {
               <strong>{quote ?? (working ? "computing…" : `${total.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${usdt0Symbol}`)}</strong>
             </div>
             <Button icon={Sparkles} loading={working} onClick={() => void cycle()}>
-              {working ? "Encrypting & computing" : "Compute private quote"}
+              {working ? "Computing your quote" : "Get a private quote"}
             </Button>
             <p className="ql-quote__note">
               <Eye size={14} aria-hidden="true" />
-              <span>The quote is computed inside Flare Confidential Compute and never leaves the enclave in plaintext.</span>
+              <span>Your quote is worked out inside a secure enclave. Your numbers are never shown in plain text.</span>
             </p>
           </div>
         </div>
       </div>
 
       <div className="ql-quote__aside">
-        <span className="ql-eyebrow"><span className="ql-pulse" /> try the mechanism</span>
-        <h2>See what a private quote feels like.</h2>
+        <span className="ql-eyebrow"><span className="ql-pulse" /> try it yourself</span>
+        <h2>See a private quote</h2>
         <p>
-          Move the collateral and watch the numbers stay private. Borrowable amounts follow the
-          live protocol policy: {POLICY.initialLtvBps / 100}% initial LTV, {POLICY.liquidationLtvBps / 100}% liquidation.
+          Change the collateral amount and watch the numbers update. The limits are the protocol's
+          real ones: you can borrow up to {POLICY.initialLtvBps / 100}% of your collateral, with
+          liquidation at {POLICY.liquidationLtvBps / 100}%.
         </p>
         <div style={{ display: "grid", gap: "10px", marginTop: "22px" }}>
           <span className="ql-track-labels"><span>Healthy</span><span>Warning 55%</span><span>Liquidation 65%</span></span>
@@ -404,21 +421,167 @@ function QuotePreview() {
 const FAQ_ITEMS = [
   {
     q: "What stays private, and what becomes public?",
-    a: "Your collateral, debt, health, and the terms you accept are encrypted and only decrypted for your session. The payout amount, destination, and settlement receipt are public on Coston2 — that is the boundary Quietline is built on.",
+    a: "Your collateral, debt, loan health, and the terms you accept stay private and are only shown to you. The payout amount, where it goes, and the settlement receipt are public on Flare. That line between private and public is the whole idea behind Quietline.",
   },
   {
     q: "Where does the credit decision happen?",
-    a: "Inside Flare Confidential Compute. The FCC receives the encrypted account state, evaluates the fixed policy, and issues a signed settlement — no human or operator ever sees your numbers in plaintext.",
+    a: "Inside a secure enclave on Flare. It receives your private account details, applies the same fixed rules to everyone, and signs off on the result. No person or operator ever sees your numbers.",
   },
   {
-    q: "How is the XRP price sourced?",
-    a: "Quietline uses FTSOv2 on Flare. The XRP/USD feed is a public oracle signal; it is only used to size your credit line and monitor health, never to expose your private balances.",
+    q: "Where does the XRP price come from?",
+    a: "From Flare's built-in price feed, FTSOv2. The XRP/USD price is public and is only used to size your credit line and check its health. It never reveals your private balances.",
   },
   {
-    q: "Is this on mainnet?",
-    a: "Not yet. Quietline is live on Coston2, Flare's testnet, while the protocol and its confidential-compute workload are audited.",
+    q: "Is this live with real money yet?",
+    a: "Not yet. Quietline runs on Coston2, Flare's test network, while the protocol and its private compute are being audited.",
   },
 ];
+
+/* ----------------------------------------------------- privacy flip deck */
+
+/**
+ * A stacked "card deck" that flips on its vertical axis between the private
+ * face (lock) and the public face (eye). It is a real button, so it flips on
+ * click and on keyboard (Enter/Space). Under reduced motion the CSS renders
+ * both faces stacked and static, so all information stays visible without
+ * interacting. The content is the same private/public split as before, kept
+ * to a single representation per side.
+ */
+function PrivacyDeck() {
+  const [flipped, setFlipped] = useState(false);
+  return (
+    <div className="ql-deck">
+      <span className="ql-deck__peek" aria-hidden="true" />
+      <button
+        type="button"
+        className={`ql-flip${flipped ? " ql-flip--flipped" : ""}`}
+        aria-pressed={flipped}
+        aria-label={
+          flipped
+            ? "Showing what is public. Activate to see what stays private."
+            : "Showing what stays private. Activate to see what is public."
+        }
+        onClick={() => setFlipped((value) => !value)}
+      >
+        <span className="ql-flip__inner">
+          <span className="ql-flip__face ql-flip__face--private" aria-hidden={flipped}>
+            <span className="ql-flip__corner ql-flip__corner--tr"><LockKeyhole size={15} /></span>
+            <span className="ql-flip__corner ql-flip__corner--bl"><LockKeyhole size={15} /></span>
+            <span className="ql-flip__scope"><LockKeyhole size={20} /> Private</span>
+            <ul>
+              <li><LockKeyhole size={14} /> Your collateral and debt</li>
+              <li><LockKeyhole size={14} /> Your loan health and interest</li>
+              <li><LockKeyhole size={14} /> The terms you accept</li>
+            </ul>
+            <span className="ql-flip__hint">Tap to see what is public</span>
+          </span>
+          <span className="ql-flip__face ql-flip__face--public" aria-hidden={!flipped}>
+            <span className="ql-flip__corner ql-flip__corner--tr"><Eye size={15} /></span>
+            <span className="ql-flip__corner ql-flip__corner--bl"><Eye size={15} /></span>
+            <span className="ql-flip__scope"><Eye size={20} /> Public</span>
+            <ul>
+              <li><Eye size={14} /> Vault token balances</li>
+              <li><Eye size={14} /> Payouts and settlement receipts</li>
+              <li><Eye size={14} /> The XRP price feed (FTSOv2)</li>
+            </ul>
+            <span className="ql-flip__hint">Tap to see what stays private</span>
+          </span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------- live market grid */
+
+/** Compact, honest formatting for the vault balance (6-decimal USD₮0 base). */
+function formatVaultBalance(raw: string): string {
+  const value = Number(raw) / 1_000_000;
+  if (!Number.isFinite(value)) return "Unavailable";
+  if (value >= 1_000_000) return `${(value / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 2 })}M`;
+  if (value >= 1_000) return `${(value / 1_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}K`;
+  return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+function LiveMarketGrid() {
+  const market = useMarket();
+  const data = market.status === "ready" ? market.data : null;
+  const stale = market.status === "ready" && market.stale;
+  const loading = market.status === "loading";
+  const live = data !== null && !stale;
+
+  const age = useSecondsSince(data ? data.updatedAt : null);
+
+  const priceText = data
+    ? `$${(data.xrpUsdE6 / 1_000_000).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+    : loading
+      ? "Loading"
+      : "Unavailable";
+
+  const vaultText = data ? formatVaultBalance(data.vaultUsdt0Balance) : loading ? "Loading" : "Unavailable";
+
+  const limits = `${POLICY.initialLtvBps / 100} / ${POLICY.warningLtvBps / 100} / ${POLICY.liquidationLtvBps / 100}`;
+
+  let ageValue = loading ? "Loading" : "Unavailable";
+  let ageUnit = "";
+  if (age !== null) {
+    if (age < 90) {
+      ageValue = String(age);
+      ageUnit = age === 1 ? "second ago" : "seconds ago";
+    } else {
+      const minutes = Math.floor(age / 60);
+      ageValue = String(minutes);
+      ageUnit = minutes === 1 ? "minute ago" : "minutes ago";
+    }
+  }
+
+  return (
+    <div className="ql-data">
+      <div className="ql-data__cell">
+        <span className="ql-data__label"><ShieldCheck size={14} /> XRP / USD · FTSOv2</span>
+        <div className={`ql-data__value${live ? " ql-data__value--live" : ""}`}>
+          {live ? <span className="ql-live" aria-hidden="true" /> : null}
+          {priceText}
+        </div>
+        <span className="ql-data__foot">
+          {market.status === "unavailable"
+            ? "Price feed is unavailable right now"
+            : stale
+              ? "Showing the last known price"
+              : "Live from Flare's FTSOv2 price feed"}
+        </span>
+      </div>
+
+      <div className="ql-data__cell">
+        <span className="ql-data__label"><LockKeyhole size={14} /> Borrowing limits</span>
+        <div className="ql-data__value">{limits} <small>%</small></div>
+        <span className="ql-data__foot">Start / warning / liquidation</span>
+      </div>
+
+      <div className="ql-data__cell">
+        <span className="ql-data__label"><HandCoins size={14} /> Vault liquidity</span>
+        <div className="ql-data__value">
+          {vaultText} {data ? <small>{usdt0Symbol}</small> : null}
+        </div>
+        <span className="ql-data__foot">
+          {market.status === "unavailable"
+            ? "Vault balance is unavailable right now"
+            : "Available in the vault to borrow"}
+        </span>
+      </div>
+
+      <div className="ql-data__cell">
+        <span className="ql-data__label"><CloudCog size={14} /> Price updated</span>
+        <div className="ql-data__value">
+          {ageValue} {ageUnit ? <small>{ageUnit}</small> : null}
+        </div>
+        <span className="ql-data__foot">
+          {data ? "Refreshes on its own" : "Waiting for the price feed"}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 /* ----------------------------------------------------------------- landing */
 
@@ -489,19 +652,19 @@ function LandingPageContent() {
           <section ref={heroRef} className="ql-hero">
             <div className="ql-hero__grid" aria-hidden="true" />
             <div className="ql-hero__copy">
-              <span className="ql-eyebrow"><span className="ql-pulse" /> Built for Flare Confidential Compute</span>
+              <span className="ql-eyebrow"><span className="ql-pulse" /> Private credit on Flare</span>
               <h1>Quietline<span className="ql-thin">.</span></h1>
               <p className="ql-hero__tagline">Private credit, settled on Flare.</p>
               <p className="ql-hero__body">
-                Borrow {usdt0Symbol} against {fxrpSymbol} — lender terms are evaluated inside a
-                confidential environment, so your numbers never leave your session in plaintext.
+                Borrow {usdt0Symbol} against your {fxrpSymbol}. Your balances and the terms you take
+                stay private, so your numbers never become public.
               </p>
               <div className="ql-hero__actions">
                 <Link to="/app" className="button button--primary button--large">
                   Enter Quietline <ArrowRight size={18} />
                 </Link>
                 <a href="#privacy" className="button button--secondary button--large">
-                  Read the privacy boundary
+                  See what stays private
                 </a>
               </div>
               <div className="ql-hero__facts">
@@ -530,99 +693,76 @@ function LandingPageContent() {
           <section ref={featuresRef} id="product" className="ql-section">
             <div className="ql-section__head">
               <span className="ql-eyebrow">Product</span>
-              <h2>Credit that respects the boundary.</h2>
+              <h2>Private credit</h2>
               <p>
-                Quietline is a confidential credit line for Flare. Deposit {fxrpSymbol}, borrow
-                {usdt0Symbol}, and let the protocol — not you — decide what is visible.
+                Quietline is a private credit line on Flare. Deposit {fxrpSymbol}, borrow {usdt0Symbol},
+                and keep your balances private while settlement happens in public.
               </p>
             </div>
             <div className="ql-features">
               <article className="ql-feature">
                 <span className="ql-feature__icon"><LockKeyhole size={20} /></span>
                 <h3>Borrow privately</h3>
-                <p>Your collateral, debt, and accepted terms are encrypted and only decrypted for your session.</p>
-                <Link to="/app/borrow">Request a private quote <ArrowRight size={15} /></Link>
+                <p>Your collateral, debt, and the terms you take stay private and are only ever shown to you.</p>
+                <Link to="/app/borrow">Get a private quote <ArrowRight size={15} /></Link>
               </article>
               <article className="ql-feature">
                 <span className="ql-feature__icon"><HandCoins size={20} /></span>
                 <h3>Lend on your terms</h3>
-                <p>Fixed-day credit lines evaluated inside Flare Confidential Compute — the market decides, not a borrower's public profile.</p>
+                <p>Credit lines run for a fixed number of days and are priced by the market, not by anyone's public profile.</p>
                 <Link to="/app/earn">See the terms <ArrowRight size={15} /></Link>
               </article>
               <article className="ql-feature">
                 <span className="ql-feature__icon"><ShieldCheck size={20} /></span>
-                <h3>Manage risk clearly</h3>
-                <p>Health, LTV, and liquidation thresholds are public signals. Your balances stay private.</p>
-                <Link to="/app/position">Inspect the risk model <ArrowRight size={15} /></Link>
+                <h3>Stay in control</h3>
+                <p>The limits that keep loans safe are public and easy to check. Your balances stay private.</p>
+                <Link to="/app/position">See how limits work <ArrowRight size={15} /></Link>
               </article>
             </div>
           </section>
 
           <section ref={privacyRef} id="privacy" className="ql-section ql-section--ink ql-privacy">
             <div className="ql-privacy__intro">
-              <span className="ql-eyebrow"><LockKeyhole size={12} /> The boundary</span>
-              <h2>Some facts stay private. Some cannot.</h2>
+              <span className="ql-eyebrow"><LockKeyhole size={12} /> Privacy</span>
+              <h2>What stays private</h2>
               <p>
-                Quietline encrypts what is yours and anchors what the network needs. Every screen in the
-                product labels which side of the boundary it lives on.
+                Some details are yours to keep private. Others need to be public so the network can
+                settle your loan. Here is exactly what sits on each side.
               </p>
               <p className="ql-privacy__rule">
-                <strong>Privacy rule:</strong> never claim deposits, payouts, wallet addresses, amounts,
-                or timing are hidden.
+                <strong>An honest promise:</strong> we never claim your deposits, payouts, wallet
+                address, amounts, or timing are hidden. Those are always public.
               </p>
             </div>
-            <div className="ql-columns">
-              <div className="ql-column ql-column--private">
-                <header>
-                  <LockKeyhole size={20} />
-                  <div><PrivacyLabel scope="private" /><h3>Private</h3></div>
-                </header>
-                <ul>
-                  <li><LockKeyhole size={14} /> Collateral and debt balances</li>
-                  <li><LockKeyhole size={14} /> Health and accrued interest</li>
-                  <li><LockKeyhole size={14} /> Accepted lending terms</li>
-                </ul>
-              </div>
-              <div className="ql-column ql-column--public">
-                <header>
-                  <Eye size={20} />
-                  <div><PrivacyLabel scope="public" /><h3>Public</h3></div>
-                </header>
-                <ul>
-                  <li><Eye size={14} /> Vault token balances</li>
-                  <li><Eye size={14} /> Settlement receipts and payouts</li>
-                  <li><Eye size={14} /> FTSOv2 price signals</li>
-                </ul>
-              </div>
-            </div>
+            <PrivacyDeck />
           </section>
 
           <section ref={flowRef} id="how" className="ql-section">
             <div className="ql-section__head">
-              <span className="ql-eyebrow">How it works</span>
-              <h2>Encrypt. Compute. Anchor. Settle.</h2>
-              <p>Four steps, one continuous pipeline. Plaintext exists only inside the enclave.</p>
+              <span className="ql-eyebrow">Process</span>
+              <h2>How it works</h2>
+              <p>Four steps, start to finish. Your private details are only ever readable inside a secure enclave.</p>
             </div>
             <ol className="ql-flow">
               <li>
                 <span className="ql-flow__icon"><LockKeyhole size={20} /></span>
                 <h3>Encrypt</h3>
-                <p>Your account state and request are sealed before they leave the browser.</p>
+                <p>Your details are locked on your device before anything is sent.</p>
               </li>
               <li>
                 <span className="ql-flow__icon"><CloudCog size={20} /></span>
                 <h3>Compute</h3>
-                <p>Flare Confidential Compute evaluates the fixed policy inside a TEE.</p>
+                <p>A secure enclave on Flare checks the terms without ever exposing your numbers.</p>
               </li>
               <li>
                 <span className="ql-flow__icon"><ShieldCheck size={20} /></span>
                 <h3>Anchor</h3>
-                <p>A signed settlement is committed to the QuietVault on Coston2.</p>
+                <p>The signed result is recorded in the Quietline vault on Flare.</p>
               </li>
               <li>
                 <span className="ql-flow__icon"><Check size={20} /></span>
                 <h3>Settle</h3>
-                <p>Payouts are public; your private ledger updates only for you.</p>
+                <p>Payouts happen in public. Your private balances update just for you.</p>
               </li>
             </ol>
           </section>
@@ -633,42 +773,17 @@ function LandingPageContent() {
 
           <section ref={dataRef} className="ql-section">
             <div className="ql-section__head">
-              <span className="ql-eyebrow">Public signals</span>
-              <h2>Market context, live.</h2>
-              <p>Everything the network sees — prices, vault holdings, LTV thresholds — in one panel.</p>
+              <span className="ql-eyebrow">Live data</span>
+              <h2>Live market data</h2>
+              <p>The public numbers behind Quietline, read straight from Flare. They refresh on their own.</p>
             </div>
-            <div className="ql-data">
-              <div className="ql-data__cell">
-                <span className="ql-data__label"><ShieldCheck size={14} /> XRP/USD · FTSOv2</span>
-                <div className="ql-data__value">$2.38 <small>· 30d</small></div>
-                <svg className="ql-spark" viewBox="0 0 200 52" preserveAspectRatio="none" aria-hidden="true">
-                  <path className="ql-spark__area" d="M0,42 L18,38 L36,40 L54,32 L72,34 L90,24 L108,27 L126,18 L144,20 L162,10 L180,14 L200,6 L200,52 L0,52 Z" />
-                  <path d="M0,42 L18,38 L36,40 L54,32 L72,34 L90,24 L108,27 L126,18 L144,20 L162,10 L180,14 L200,6" />
-                </svg>
-              </div>
-              <div className="ql-data__cell">
-                <span className="ql-data__label"><LockKeyhole size={14} /> LTV thresholds</span>
-                <div className="ql-data__value">50 / 55 / 65 <small>%</small></div>
-                <svg className="ql-spark ql-spark--flare" viewBox="0 0 200 52" preserveAspectRatio="none" aria-hidden="true">
-                  <path className="ql-spark__area" d="M0,50 L30,50 L60,48 L90,50 L120,44 L150,40 L180,30 L200,24 L200,52 L0,52 Z" />
-                  <path d="M0,50 L30,50 L60,48 L90,50 L120,44 L150,40 L180,30 L200,24" />
-                </svg>
-              </div>
-              <div className="ql-data__cell">
-                <span className="ql-data__label"><HandCoins size={14} /> Vault holdings</span>
-                <div className="ql-data__value">2.4M <small>{usdt0Symbol}</small></div>
-              </div>
-              <div className="ql-data__cell">
-                <span className="ql-data__label"><CloudCog size={14} /> Oracle age</span>
-                <div className="ql-data__value">2 <small>sec</small></div>
-              </div>
-            </div>
+            <LiveMarketGrid />
           </section>
 
           <section ref={faqRef} id="faq" className="ql-section ql-faq">
             <div className="ql-section__head">
               <span className="ql-eyebrow">FAQ</span>
-              <h2>Questions, answered plainly.</h2>
+              <h2>Common questions</h2>
             </div>
             <div className="ql-faq__list">
               {FAQ_ITEMS.map((item) => (
@@ -683,8 +798,8 @@ function LandingPageContent() {
           <section ref={ctaRef} className="ql-cta">
             <div>
               <span className="ql-cta__kicker">Quietline</span>
-              <h2>Your credit line, on your terms.</h2>
-              <p>Connect a Coston2 wallet and request a confidential quote in minutes.</p>
+              <h2>Start a private credit line</h2>
+              <p>Connect a Coston2 wallet and get a private quote in minutes.</p>
             </div>
             <div className="ql-hero__actions">
               <Link to="/app" className="button button--primary button--large" onClick={onDemo}>
