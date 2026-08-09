@@ -1,8 +1,8 @@
 /* Quietline landing page
  * Self-contained, ql- namespaced. Reuses global design tokens from styles.css
  * (--flare, --ink, --teal, --bg, etc.). Premium light-theme composition built
- * with CSS 3D transforms + reveal utilities. No glow, gradient, or glass — the
- * depth comes from Quietline's signature hard-offset shadows and 1px borders.
+ * with CSS 3D transforms + reveal utilities. No glow, gradient, or glass.
+ * Depth comes from Quietline's signature hard-offset shadows and 1px borders.
  * All motion is opacity/transform only and is disabled under reduced motion. */
 
 .ql {
@@ -326,7 +326,7 @@
   transition: transform 80ms linear;
 }
 
-/* Real account preview — reuses the app's visual language, not a screenshot. */
+/* Real account preview: reuses the app's visual language, not a screenshot. */
 .ql-ledger {
   position: relative;
   transform: translateZ(0);
@@ -520,46 +520,7 @@
   50% { opacity: 0.45; }
 }
 
-/* ---- Floating coins (parallax) ------------------------------------------ */
-
-.ql-coin {
-  position: absolute;
-  z-index: 2;
-  width: var(--size, 64px);
-  height: var(--size, 64px);
-  border-radius: 50%;
-  pointer-events: none;
-  transform: translate3d(0, 0, 0);
-  will-change: transform;
-}
-
-.ql-coin img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  border-radius: 50%;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.6) inset,
-    0 14px 30px rgba(22, 32, 28, 0.22);
-}
-
-.ql-coin__float {
-  width: 100%;
-  height: 100%;
-  animation: ql-bob var(--dur, 6s) ease-in-out infinite;
-  animation-delay: var(--delay, 0s);
-}
-
-@keyframes ql-bob {
-  0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
-  50% { transform: translateY(-14px) rotate(calc(var(--tilt, 0deg) * -1)); }
-}
-
-.ql-coin--fxrp { top: -34px; right: 8%; --size: 76px; }
-.ql-coin--usdt { bottom: -26px; left: -30px; --size: 62px; }
-.ql-coin--xrp2 { top: 42%; right: -34px; --size: 46px; opacity: 0.92; }
-
-/* blueprint annotation — a real structural label, not decoration */
+/* blueprint annotation: a real structural label, not decoration */
 .ql-annot {
   position: absolute;
   z-index: 3;
@@ -763,38 +724,95 @@
 
 .ql-privacy__rule strong { color: #fff; font-weight: 600; }
 
-.ql-columns {
-  display: grid;
-  gap: 22px;
+/* ---- Privacy flip deck ---------------------------------------------------- */
+
+.ql-deck {
+  position: relative;
+  align-self: center;
+  perspective: 1600px;
 }
 
-.ql-column {
+/* decorative offset card behind, for the stacked "card deck" look */
+.ql-deck__peek {
+  position: absolute;
+  inset: 0;
+  transform: translate(14px, 16px);
   border: 1px solid #3b4742;
-  padding: clamp(22px, 3vw, 32px);
-  background: #121715;
+  border-radius: var(--radius);
+  background: #0f1412;
+  box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.22);
+  z-index: 0;
 }
 
-.ql-column header {
+.ql-flip {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transform-style: preserve-3d;
+}
+
+/* Both faces stack in the same grid cell so the deck auto-sizes to the taller
+ * face (no fixed height, no overflow). The inner rotates; each face hides its
+ * own back so only one is visible at a time. */
+.ql-flip__inner {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 700ms var(--ql-ease);
+}
+
+.ql-flip--flipped .ql-flip__inner {
+  transform: rotateY(180deg);
+}
+
+.ql-flip__face {
+  grid-area: 1 / 1;
   display: flex;
-  gap: 14px;
-  align-items: flex-start;
+  flex-direction: column;
+  min-height: 320px;
+  padding: clamp(24px, 3vw, 36px);
+  border: 1px solid #3b4742;
+  border-radius: var(--radius);
+  background: #121715;
+  box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.3);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
-.ql-column header > svg { flex: none; }
+.ql-flip__face--public {
+  transform: rotateY(180deg);
+}
 
-.ql-column h3 {
-  margin: 0;
+.ql-flip__scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-size: 22px;
+  font-weight: 700;
 }
 
-.ql-column ul {
+.ql-flip__face--private .ql-flip__scope,
+.ql-flip__face--private .ql-flip__corner { color: #82c8c2; }
+.ql-flip__face--public .ql-flip__scope,
+.ql-flip__face--public .ql-flip__corner { color: #77a9cf; }
+
+.ql-flip__face ul {
   list-style: none;
   margin: 20px 0 0;
   padding: 18px 0 0;
   border-top: 1px solid #3b4742;
+  display: grid;
+  gap: 2px;
 }
 
-.ql-column li {
+.ql-flip__face li {
   display: flex;
   gap: 10px;
   align-items: flex-start;
@@ -803,12 +821,35 @@
   font-size: 15px;
 }
 
-.ql-column li svg { flex: none; margin-top: 2px; }
+.ql-flip__face li svg { flex: none; margin-top: 2px; }
 
-.ql-column--private header > svg,
-.ql-column--private li svg { color: #82c8c2; }
-.ql-column--public header > svg,
-.ql-column--public li svg { color: #77a9cf; }
+.ql-flip__hint {
+  margin-top: auto;
+  padding-top: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Fira Code", monospace;
+  font-size: 12px;
+  color: #8b9793;
+}
+
+.ql-flip__corner {
+  position: absolute;
+  opacity: 0.55;
+}
+
+.ql-flip__corner--tr { top: 18px; right: 20px; }
+.ql-flip__corner--bl { bottom: 18px; left: 20px; transform: rotate(180deg); }
+
+.ql-flip:hover .ql-flip__inner { transform: translateY(-3px); }
+.ql-flip--flipped:hover .ql-flip__inner { transform: rotateY(180deg) translateY(-3px); }
+
+.ql-flip:focus-visible { outline: none; }
+.ql-flip:focus-visible .ql-flip__face {
+  outline: 2px solid #82c8c2;
+  outline-offset: 3px;
+}
 
 /* ---- How it works (a real sequence -> numbered) --------------------------- */
 
@@ -1055,7 +1096,7 @@
 .ql-quote__aside h2 { font-size: clamp(28px, 3.6vw, 44px); margin: 12px 0 14px; }
 .ql-quote__aside p { color: var(--muted); font-size: 16px; max-width: 460px; }
 
-/* ---- Sparkline data panel ------------------------------------------------- */
+/* ---- Live data panel ------------------------------------------------------ */
 
 .ql-data {
   display: grid;
@@ -1093,10 +1134,28 @@
 
 .ql-data__value small { font-size: 15px; color: var(--muted); }
 
-.ql-spark { display: block; width: 100%; height: 52px; margin-top: 14px; }
-.ql-spark path { fill: none; stroke: var(--teal); stroke-width: 2; }
-.ql-spark--flare path { stroke: var(--flare); }
-.ql-spark .ql-spark__area { fill: color-mix(in srgb, var(--teal) 12%, transparent); stroke: none; }
+.ql-data__value--live {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ql-live {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--teal) 55%, transparent);
+  animation: ql-pulse 2.4s var(--ql-ease) infinite;
+}
+
+.ql-data__foot {
+  display: block;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
 
 /* ---- FAQ ------------------------------------------------------------------ */
 
@@ -1196,7 +1255,6 @@
   .ql-quote { grid-template-columns: 1fr; }
   .ql-quote__aside { order: -1; }
   .ql-faq { grid-template-columns: 1fr; }
-  .ql-coin--fxrp { right: 4%; }
 }
 
 @media (max-width: 720px) {
@@ -1236,9 +1294,6 @@
   .ql-cta { flex-direction: column; align-items: flex-start; margin-inline: 0; border-radius: 0; }
   .ql-footer { grid-template-columns: 1fr; gap: 30px; }
 
-  .ql-coin--fxrp { --size: 58px; top: -22px; }
-  .ql-coin--usdt { --size: 50px; left: -12px; }
-  .ql-coin--xrp2 { display: none; }
   .ql-annot { display: none; }
 }
 
@@ -1254,16 +1309,32 @@
 @media (prefers-reduced-motion: reduce) {
   .ql-reveal { opacity: 1; transform: none; }
   .ql-card3d { transform: none !important; }
-  .ql-coin { position: absolute; }
-  .ql-coin__float,
   .ql-cipher::after,
   .ql-eyebrow .ql-pulse,
+  .ql-live,
   .ql-track span,
   .ql-pipe__node[data-state="active"] svg { animation: none; }
   .ql-proof__row { animation: none; width: auto; }
   .ql-proof__set { flex-wrap: wrap; justify-content: center; }
   .ql-proof__set:nth-child(2) { display: none; }
   .ql-preloader { display: none; }
+
+  /* Flip deck: show both faces stacked and static, so every fact is visible
+   * without needing to flip the card. */
+  .ql-flip__inner { display: block; transform: none !important; }
+  .ql-flip__face {
+    position: relative;
+    transform: none !important;
+    min-height: 0;
+    -webkit-backface-visibility: visible;
+    backface-visibility: visible;
+  }
+  .ql-flip__face--public { margin-top: 20px; }
+  .ql-flip__hint { display: none; }
+  .ql-flip__corner { display: none; }
+  .ql-deck__peek { display: none; }
+  .ql-flip:hover .ql-flip__inner,
+  .ql-flip--flipped:hover .ql-flip__inner { transform: none; }
 }
 
 
