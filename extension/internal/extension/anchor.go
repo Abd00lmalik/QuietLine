@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -67,13 +68,26 @@ func (e *Extension) verifyAnchorOnChain(sequence uint64, root string) error {
 		data := crypto.Keccak256([]byte(signature))[:4]
 		return e.chain.CallContract(ctx, ethereum.CallMsg{To: &e.cfg.Vault, Data: data}, nil)
 	}
-	sequenceRaw, err := call("stateSequence()")
-	if err != nil {
-		return err
+	// stateSequence() and stateRoot() are independent latest-block view reads. Each
+	// is a ~1s Coston2 round-trip, so running them sequentially summed to as much as
+	// ~2.3s and could exceed tee-node's 2s ProxyTimeout on ANCHOR_CONFIRMED, leaving
+	// a settled anchor perpetually unconfirmed. Overlap the two round-trips so wall
+	// time is the slower read, not their sum; both values are still fully verified
+	// below, so the check is unchanged.
+	var (
+		sequenceRaw, rootRaw []byte
+		sequenceErr, rootErr error
+		wg                   sync.WaitGroup
+	)
+	wg.Add(2)
+	go func() { defer wg.Done(); sequenceRaw, sequenceErr = call("stateSequence()") }()
+	go func() { defer wg.Done(); rootRaw, rootErr = call("stateRoot()") }()
+	wg.Wait()
+	if sequenceErr != nil {
+		return sequenceErr
 	}
-	rootRaw, err := call("stateRoot()")
-	if err != nil {
-		return err
+	if rootErr != nil {
+		return rootErr
 	}
 	if len(sequenceRaw) != 32 || len(rootRaw) != 32 {
 		return errors.New("vault returned malformed anchor state")
