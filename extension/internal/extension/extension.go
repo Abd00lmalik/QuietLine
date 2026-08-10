@@ -25,6 +25,13 @@ type Extension struct {
 	httpClient *http.Client
 	chain      *ethclient.Client
 	clock      func() time.Time
+	// price serves the QUOTE hot path from a background-refreshed cache so /action
+	// answers inside tee-node's 2s ProxyTimeout instead of blocking on a live
+	// Coston2 read. nil in unit tests that build Extension directly; currentXrpUsdPrice
+	// falls back to a live read whenever it is nil or not yet primed.
+	price     *priceCache
+	priceStop chan struct{}
+	priceDone chan struct{}
 }
 
 func New(cfg config.Config) (*Extension, error) {
@@ -43,6 +50,10 @@ func New(cfg config.Config) (*Extension, error) {
 		return nil, fmt.Errorf("dialing chain: %w", err)
 	}
 	e := &Extension{cfg: cfg, store: store, engine: engine, chain: chain, httpClient: &http.Client{Timeout: 15 * time.Second}, clock: time.Now}
+	e.price = &priceCache{}
+	e.priceStop = make(chan struct{})
+	e.priceDone = make(chan struct{})
+	go e.startPriceRefresher(e.priceStop, e.priceDone)
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /action", e.actionHandler)
 	mux.HandleFunc("GET /state", e.stateHandler)
@@ -51,7 +62,20 @@ func New(cfg config.Config) (*Extension, error) {
 	return e, nil
 }
 
-func (e *Extension) Close() error { e.chain.Close(); return e.store.Close() }
+func (e *Extension) Close() error {
+	// Stop the price refresher before tearing down the chain client so it never
+	// reads through a closed connection. Bounded by ShutdownTimeout so an in-flight
+	// RPC can never hold shutdown open indefinitely.
+	if e.priceStop != nil {
+		close(e.priceStop)
+		select {
+		case <-e.priceDone:
+		case <-time.After(config.ShutdownTimeout):
+		}
+	}
+	e.chain.Close()
+	return e.store.Close()
+}
 
 func (e *Extension) healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
