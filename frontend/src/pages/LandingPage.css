@@ -713,17 +713,6 @@
 
 .ql-privacy__intro p { color: #aab5b0; font-size: 16px; }
 
-.ql-privacy__rule {
-  margin-top: 34px;
-  padding-top: 20px;
-  border-top: 1px solid #3b4742;
-  font-family: "Fira Code", monospace;
-  font-size: 13px;
-  color: #aab5b0;
-}
-
-.ql-privacy__rule strong { color: #fff; font-weight: 600; }
-
 /* ---- Privacy flip deck ---------------------------------------------------- */
 
 .ql-deck {

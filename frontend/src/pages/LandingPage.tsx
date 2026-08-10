@@ -435,6 +435,10 @@ const FAQ_ITEMS = [
     q: "Is this live with real money yet?",
     a: "Not yet. Quietline runs on Coston2, Flare's test network, while the protocol and its private compute are being audited.",
   },
+  {
+    q: "Why Flare?",
+    a: "Quietline needs two things in one place: a trustworthy XRP/USD price and a way to run the credit engine in private. Flare gives us both. FTSOv2 delivers the XRP price on-chain, so sizing and health checks never depend on an outside feed. Flare Confidential Compute runs the credit logic inside a secure enclave, so your balances stay private while the payout and settlement still land publicly on-chain.",
+  },
 ];
 
 /* ----------------------------------------------------- privacy flip deck */
@@ -728,10 +732,6 @@ function LandingPageContent() {
               <p>
                 Some details are yours to keep private. Others need to be public so the network can
                 settle your loan. Here is exactly what sits on each side.
-              </p>
-              <p className="ql-privacy__rule">
-                <strong>An honest promise:</strong> we never claim your deposits, payouts, wallet
-                address, amounts, or timing are hidden. Those are always public.
               </p>
             </div>
             <PrivacyDeck />
