@@ -98,19 +98,15 @@ function ConnectedOverview() {
   const privateFxrp = useQuietline((state) => state.privateFxrp);
   const privateUsdt0 = useQuietline((state) => state.privateUsdt0);
   const activities = useQuietline((state) => state.activities);
+  const pendingSettlementRefresh = useQuietline(
+    (state) => state.pendingSettlementRefresh,
+  );
   const marketPriceE6 = useQuietline((state) => state.marketPriceE6);
   const marketUpdatedAt = useQuietline((state) => state.marketUpdatedAt);
   const vaultUsdt0Balance = useQuietline((state) => state.vaultUsdt0Balance);
   const marketPrice = (marketPriceE6 ?? 0) / 1_000_000;
   const positionTone = position ? statusTone(position.status) : "neutral";
   const positionLabel = position ? statusLabel(position.status) : "";
-  const settledBorrowNeedsRefresh =
-    !position &&
-    activities.some(
-      (item) =>
-        item.label === "Borrow request settled" &&
-        item.status === "complete",
-    );
   const navigate = useNavigate();
   const mode = useQuietline((state) => state.mode);
   const { refreshAccount } = usePrivateActions();
@@ -153,7 +149,7 @@ function ConnectedOverview() {
         </div>
       </div>
 
-      {settledBorrowNeedsRefresh ? (
+      {pendingSettlementRefresh ? (
         <section className="settlement-recovery" aria-live="polite">
           <div>
             <Status tone="healthy">Settlement confirmed</Status>

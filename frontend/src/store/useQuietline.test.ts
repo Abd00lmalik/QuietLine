@@ -23,6 +23,7 @@ beforeEach(() => {
     vaultUsdt0Balance: undefined,
     position: undefined,
     activities: [],
+    pendingSettlementRefresh: false,
   });
 });
 
@@ -246,5 +247,61 @@ describe("Quietline private account hydration", () => {
       marketUpdatedAt: undefined,
       vaultUsdt0Balance: undefined,
     });
+  });
+});
+
+describe("settlement-recovery banner state", () => {
+  const emptyAccountView: PrivateAccountView = {
+    account: {
+      owner: address,
+      nonce: 1,
+      balances: {
+        FXRP: { available: 0, reserved: 0 },
+        USDT0: { available: 0, reserved: 0 },
+      },
+    },
+    mandates: [],
+    activities: [],
+    price: { xrpUsdE6: 600_000, updatedAt: 1_785_528_000 },
+  };
+
+  it("raises the flag when a confirmed settlement cannot refresh the private view", () => {
+    useQuietline.getState().markSettlementRefreshPending();
+    expect(useQuietline.getState().pendingSettlementRefresh).toBe(true);
+  });
+
+  it("clears the flag only when a private refresh actually succeeds", () => {
+    useQuietline.getState().markSettlementRefreshPending();
+    useQuietline.getState().hydratePrivateAccount(emptyAccountView);
+    expect(useQuietline.getState().pendingSettlementRefresh).toBe(false);
+  });
+
+  it("keeps the flag raised across a same-tab reload", async () => {
+    useQuietline.getState().connectLive(address, "signed-session", Date.now() + 60_000);
+    useQuietline.getState().markSettlementRefreshPending();
+
+    const persisted = sessionStorage.getItem("quietline.private-session");
+    expect(persisted).toBeTruthy();
+
+    useQuietline.setState({ pendingSettlementRefresh: false });
+    sessionStorage.setItem("quietline.private-session", persisted!);
+    await useQuietline.persist.rehydrate();
+
+    expect(useQuietline.getState().pendingSettlementRefresh).toBe(true);
+  });
+
+  it("keeps the flag raised through a lock and a reconnect (only a real refresh clears it)", () => {
+    useQuietline.getState().markSettlementRefreshPending();
+    useQuietline.getState().lock();
+    expect(useQuietline.getState().pendingSettlementRefresh).toBe(true);
+
+    useQuietline.getState().connectLive(address, "signed-session", Date.now() + 60_000);
+    expect(useQuietline.getState().pendingSettlementRefresh).toBe(true);
+  });
+
+  it("resets the flag on a full disconnect", () => {
+    useQuietline.getState().markSettlementRefreshPending();
+    useQuietline.getState().disconnect();
+    expect(useQuietline.getState().pendingSettlementRefresh).toBe(false);
   });
 });

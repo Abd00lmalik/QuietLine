@@ -308,6 +308,9 @@ export function useVaultActions() {
   const publicClient = usePublicClient();
   const sessionToken = useQuietline((state) => state.sessionToken);
   const addPublicActivity = useQuietline((state) => state.addPublicActivity);
+  const markSettlementRefreshPending = useQuietline(
+    (state) => state.markSettlementRefreshPending,
+  );
   const {
     prepare,
     protocolContext,
@@ -482,7 +485,12 @@ export function useVaultActions() {
       try {
         await refreshAfterNonceAdvance(refreshAccount);
       } catch (error) {
+        // Settlement is confirmed on-chain, but this browser could not refresh its
+        // confidential view (signature rejected, decrypt/network failure). Record
+        // the desync so the Overview banner prompts a manual refresh; it clears
+        // only once a later ACCOUNT_QUERY hydrate actually succeeds.
         synchronizationError = messageFor(error);
+        markSettlementRefreshPending();
       }
       await synchronizePublicState(clients.sessionToken);
       addPublicActivity({
@@ -502,6 +510,7 @@ export function useVaultActions() {
     [
       addPublicActivity,
       assertLiveFcc,
+      markSettlementRefreshPending,
       prepare,
       protocolContext,
       refreshAccount,

@@ -65,12 +65,20 @@ type QuietlineState = {
   };
   position?: Position | undefined;
   activities: ActivityItem[];
+  // True when a borrow settled publicly (on-chain confirmation received) but this
+  // browser's confidential view has not yet been refreshed to reflect it. Set only
+  // when a confirmed settlement's follow-up private refresh fails; cleared only by
+  // a successful ACCOUNT_QUERY hydrate. Persisted, so the settlement-recovery
+  // banner survives reloads and clears only after a real refresh — never on a mere
+  // click, reload, or reconnect.
+  pendingSettlementRefresh: boolean;
   notifications: { health: boolean; maturity24h: boolean; maturity1h: boolean; deposit: boolean; payout: boolean };
   connectLive: (address: Address, token: string, expiresAt: number) => void;
   hydratePrivateAccount: (view: PrivateAccountView) => void;
   incrementAccountNonce: () => void;
   addPublicActivity: (item: Omit<ActivityItem, "id" | "scope" | "timestamp">) => void;
   hydrateRelayerJobs: (jobs: RelayerJob[]) => void;
+  markSettlementRefreshPending: () => void;
   hydrateMarket: (market: { xrpUsdE6: number; updatedAt: number; vaultUsdt0Balance: string }) => void;
   markMarketUnavailable: () => void;
   hydrateHealth: (health: NonNullable<QuietlineState["serviceHealth"]>) => void;
@@ -89,6 +97,7 @@ const initialPrivateState = {
   lenderEarned: 0,
   mandates: [] as PrivateMandate[],
   activities: [] as ActivityItem[],
+  pendingSettlementRefresh: false,
   marketStatus: "loading" as const,
   notifications: {
     health: true,
@@ -150,6 +159,8 @@ export const useQuietline = create<QuietlineState>()(persist((set) => ({
         mandates: view.mandates,
         position: loan ? positionFromView(loan, view.price.xrpUsdE6) : undefined,
         activities: [...privateActivities, ...publicActivities],
+        // A successful confidential refresh IS the reconcile the banner waits for.
+        pendingSettlementRefresh: false,
       };
     }),
   incrementAccountNonce: () =>
@@ -191,6 +202,7 @@ export const useQuietline = create<QuietlineState>()(persist((set) => ({
       const existing = state.activities.filter((item) => !relayerIds.has(item.id));
       return { activities: [...relayerRows, ...existing] };
     }),
+  markSettlementRefreshPending: () => set({ pendingSettlementRefresh: true }),
   hydrateMarket: (market) =>
     set({
       marketPriceE6: market.xrpUsdE6,
@@ -235,6 +247,7 @@ export const useQuietline = create<QuietlineState>()(persist((set) => ({
       mandates: [],
       position: undefined,
       activities: [],
+      pendingSettlementRefresh: false,
     }),
   toggleNotification: (key) =>
     set((state) => ({
@@ -258,6 +271,7 @@ export const useQuietline = create<QuietlineState>()(persist((set) => ({
     mandates: state.mandates,
     position: state.position,
     activities: state.activities,
+    pendingSettlementRefresh: state.pendingSettlementRefresh,
     notifications: state.notifications,
   }),
   onRehydrateStorage: () => (state) => {
