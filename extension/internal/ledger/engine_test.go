@@ -523,33 +523,71 @@ func TestMutationReturnsAnchorPendingAfterWaitTimeout(t *testing.T) {
 	}
 }
 
-// Regression guard for the deposit-stranding bug: with the production default (not a
-// test override), a mutation blocked on a pending anchor must return ErrAnchorPending
-// well inside tee-node's hard 2s /action ProxyTimeout. If it does not, the loopback
-// is cut before mutate returns, the relayer never sees the recoverable error, and a
-// single stranded anchor blocks every later deposit (funds move on-chain, private
-// balance never credits — "Vault confirmed; waiting for FCC").
-func TestDefaultAnchorWaitTimeoutStaysWithinProxyBudget(t *testing.T) {
+// Regression guard for the 0aa85e4 deposit-stranding regression. That commit tried to
+// force a pending-anchor mutation to surface ErrAnchorPending *inside* tee-node's hard
+// 2s /action ProxyTimeout by cutting the wait to 1.2s (and the on-chain read budget to
+// 1.5s). It backfired: a real anchor confirmation takes several on-chain seconds, so the
+// sub-2s gate rejected mutations that would have succeeded, and the matching short read
+// budget stranded the very anchor the relayer's recovery had to clear — a deterministic
+// global mutation lock (funds move on-chain, private balance never credits: "Vault
+// confirmed; waiting for FCC"). The wait is restored to the known-good 20s, comfortably
+// past the 2s budget, so a blocked mutation waits for recovery instead of being rejected
+// at ~1.2s. tee-node's 2s constraint is handled where it belongs — concurrent, generously
+// timed on-chain reads in verifyAnchorOnChain — not by an artificially short internal wait.
+func TestDefaultAnchorWaitAllowsRecoveryBeyondProxyBudget(t *testing.T) {
 	const proxyTimeout = 2 * time.Second
-	if defaultAnchorWaitTimeout >= proxyTimeout {
-		t.Fatalf("default anchor wait %v must stay under tee-node's %v /action ProxyTimeout", defaultAnchorWaitTimeout, proxyTimeout)
+
+	e, _, _ := newTestEngine(t) // production default wait, not a test override
+	if e.anchorWaitTimeout <= proxyTimeout {
+		t.Fatalf(
+			"anchor wait %v must exceed the 2s proxy budget so anchor recovery is not curtailed (0aa85e4 regression)",
+			e.anchorWaitTimeout,
+		)
 	}
 
-	e, _, _ := newTestEngine(t) // production default timeout, not an override
 	if err := e.Deposit("0xAlice", AssetUSDT0, Scale, "deposit-first"); err != nil {
 		t.Fatal(err)
 	}
-	start := time.Now()
-	err := e.Deposit("0xAlice", AssetUSDT0, Scale, "deposit-second")
-	elapsed := time.Since(start)
-	if !errors.Is(err, ErrAnchorPending) {
-		t.Fatalf("expected ErrAnchorPending under the default wait, got %v", err)
+
+	// A second mutation lands while the first anchor is still pending. Under the restored
+	// wait it blocks rather than failing fast; the prior anchor clears only after a delay
+	// longer than 0aa85e4's 1.2s gate would have tolerated, yet the mutation still lands.
+	result := make(chan error, 1)
+	go func() {
+		result <- e.Deposit("0xAlice", AssetUSDT0, Scale, "deposit-second")
+	}()
+	time.Sleep(1300 * time.Millisecond) // past the old 1200ms gate
+	confirmPending(t, e)
+
+	if err := <-result; err != nil {
+		t.Fatalf("mutation blocked past the old 1.2s gate must still complete after recovery, got %v", err)
 	}
-	if elapsed >= proxyTimeout {
-		t.Fatalf("pending-anchor deposit took %v, must return inside the %v proxy budget", elapsed, proxyTimeout)
+	if got := e.State().Accounts["0xalice"].Balances[AssetUSDT0].Available; got != 2*Scale {
+		t.Fatalf("recovered mutation credited wrong balance: %d", got)
 	}
-	if got := e.State().Accounts["0xalice"].Balances[AssetUSDT0].Available; got != Scale {
-		t.Fatalf("blocked mutation must not credit balance: %d", got)
+}
+
+// Proves the new-account OPEN_ACCOUNT flow is intact under the restored 20s wait: opening
+// a fresh account is an ordinary gated mutation that produces its own pending anchor,
+// credits (advances the account nonce) once the anchor is confirmed, and rejects a replay
+// of the same operation as a duplicate.
+func TestOpenAccountFlowUnderRestoredWait(t *testing.T) {
+	e, _, _ := newTestEngine(t) // production default wait, not a test override
+
+	if err := e.OpenAccount("0xNewbie", "open-1", 0); err != nil {
+		t.Fatalf("opening a new account must succeed: %v", err)
+	}
+	if pending := e.State().PendingAnchor; pending == nil || pending.OperationID != "open-1" {
+		t.Fatalf("open-account did not produce its own anchor: %+v", pending)
+	}
+
+	confirmPending(t, e)
+
+	if got := e.State().Accounts["0xnewbie"].Nonce; got != 1 {
+		t.Fatalf("opened account nonce must advance to 1, got %d", got)
+	}
+	if err := e.OpenAccount("0xNewbie", "open-1", 1); !errors.Is(err, ErrDuplicate) {
+		t.Fatalf("replayed OPEN_ACCOUNT must be idempotent, got %v", err)
 	}
 }
 
