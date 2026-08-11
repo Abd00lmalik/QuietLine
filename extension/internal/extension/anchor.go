@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +16,14 @@ import (
 	"github.com/quietline/quietline/extension/internal/config"
 	quiettypes "github.com/quietline/quietline/extension/pkg/types"
 )
+
+// actionChainReadTimeout bounds any on-chain read performed inside a POST /action
+// handler. tee-node aborts /action after a hard 2s ProxyTimeout, so a read that
+// runs on the httpClient's 15s timeout is cut mid-flight and the handler can never
+// return a result the relayer can act on. Failing the read fast (well under 2s)
+// instead lets the handler return within the window, so the relayer can retry the
+// idempotent confirmation/recovery rather than dead-ending on an aborted loopback.
+const actionChainReadTimeout = 1500 * time.Millisecond
 
 func (e *Extension) handleAnchorConfirmation(action teetypes.Action, df *instruction.DataFixed, message []byte) (int, []byte) {
 	var payload quiettypes.AnchorConfirmedPayload
@@ -62,7 +71,7 @@ func isRecoverableCheckpoint(kind string) bool {
 }
 
 func (e *Extension) verifyAnchorOnChain(sequence uint64, root string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), e.httpClient.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), actionChainReadTimeout)
 	defer cancel()
 	call := func(signature string) ([]byte, error) {
 		data := crypto.Keccak256([]byte(signature))[:4]

@@ -78,7 +78,10 @@ func (e *Extension) verifyDepositRecord(payload quiettypes.RecoverDepositPayload
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), e.httpClient.Timeout)
+	// Bounded by actionChainReadTimeout, not httpClient.Timeout: this read runs on
+	// the RECOVER_DEPOSIT /action path, so an overrun would abort the very recovery
+	// that credits a stranded deposit. See actionChainReadTimeout in anchor.go.
+	ctx, cancel := context.WithTimeout(context.Background(), actionChainReadTimeout)
 	defer cancel()
 	output, err := e.chain.CallContract(
 		ctx,
