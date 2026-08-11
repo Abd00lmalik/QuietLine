@@ -62,6 +62,34 @@ describe("Quietline private account hydration", () => {
     });
   });
 
+  it("locks an expired session on rehydrate instead of restoring it as valid", async () => {
+    const expiredAt = Date.now() - 1_000;
+    useQuietline.getState().connectLive(address, "stale-session", expiredAt);
+    useQuietline.setState({ privateFxrp: 8.5, privateUsdt0: 2, accountNonce: 3 });
+
+    const persisted = sessionStorage.getItem("quietline.private-session");
+    expect(persisted).toContain("stale-session");
+
+    useQuietline.setState({
+      mode: "disconnected",
+      sessionToken: undefined,
+      privateFxrp: 0,
+      privateUsdt0: 0,
+      accountNonce: 0,
+    });
+    sessionStorage.setItem("quietline.private-session", persisted!);
+    await useQuietline.persist.rehydrate();
+
+    expect(useQuietline.getState()).toMatchObject({
+      mode: "disconnected",
+      sessionToken: undefined,
+      sessionExpiresAt: undefined,
+      privateFxrp: 0,
+      privateUsdt0: 0,
+      accountNonce: 0,
+    });
+  });
+
   it("maps the FCC fixed-point ledger into the browser view", () => {
     const view: PrivateAccountView = {
       account: {

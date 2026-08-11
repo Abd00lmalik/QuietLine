@@ -523,6 +523,69 @@ func TestMutationReturnsAnchorPendingAfterWaitTimeout(t *testing.T) {
 	}
 }
 
+// Regression guard for the deposit-stranding bug: with the production default (not a
+// test override), a mutation blocked on a pending anchor must return ErrAnchorPending
+// well inside tee-node's hard 2s /action ProxyTimeout. If it does not, the loopback
+// is cut before mutate returns, the relayer never sees the recoverable error, and a
+// single stranded anchor blocks every later deposit (funds move on-chain, private
+// balance never credits — "Vault confirmed; waiting for FCC").
+func TestDefaultAnchorWaitTimeoutStaysWithinProxyBudget(t *testing.T) {
+	const proxyTimeout = 2 * time.Second
+	if defaultAnchorWaitTimeout >= proxyTimeout {
+		t.Fatalf("default anchor wait %v must stay under tee-node's %v /action ProxyTimeout", defaultAnchorWaitTimeout, proxyTimeout)
+	}
+
+	e, _, _ := newTestEngine(t) // production default timeout, not an override
+	if err := e.Deposit("0xAlice", AssetUSDT0, Scale, "deposit-first"); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	err := e.Deposit("0xAlice", AssetUSDT0, Scale, "deposit-second")
+	elapsed := time.Since(start)
+	if !errors.Is(err, ErrAnchorPending) {
+		t.Fatalf("expected ErrAnchorPending under the default wait, got %v", err)
+	}
+	if elapsed >= proxyTimeout {
+		t.Fatalf("pending-anchor deposit took %v, must return inside the %v proxy budget", elapsed, proxyTimeout)
+	}
+	if got := e.State().Accounts["0xalice"].Balances[AssetUSDT0].Available; got != Scale {
+		t.Fatalf("blocked mutation must not credit balance: %d", got)
+	}
+}
+
+// Models the reported failure and its recovery end-to-end at the ledger layer: a
+// stranded pending anchor blocks the user's deposit (returned as ErrAnchorPending,
+// uncredited); once the anchor is confirmed, the relayer's RECOVER_DEPOSIT re-applies
+// the same deposit, which must credit it exactly once and reject any replay.
+func TestStrandedDepositCreditsAfterAnchorRecovery(t *testing.T) {
+	e, _, _ := newTestEngine(t)
+	e.anchorWaitTimeout = 20 * time.Millisecond // keep the blocked wait short for the test
+
+	if err := e.Deposit("0xBob", AssetFXRP, 5*Scale, "prior-op"); err != nil {
+		t.Fatal(err)
+	}
+	// The user's deposit lands while the prior anchor is still pending: blocked.
+	if err := e.Deposit("0xBob", AssetFXRP, 3*Scale, "user-deposit"); !errors.Is(err, ErrAnchorPending) {
+		t.Fatalf("expected ErrAnchorPending while a prior anchor is pending, got %v", err)
+	}
+	if got := e.State().Accounts["0xbob"].Balances[AssetFXRP].Available; got != 5*Scale {
+		t.Fatalf("blocked deposit must not credit: got %d", got)
+	}
+	// Recovery confirms the stranded anchor, then re-applies the user's deposit.
+	confirmPending(t, e)
+	if err := e.Deposit("0xBob", AssetFXRP, 3*Scale, "user-deposit"); err != nil {
+		t.Fatalf("recovery re-apply must credit the deposit: %v", err)
+	}
+	if got := e.State().Accounts["0xbob"].Balances[AssetFXRP].Available; got != 8*Scale {
+		t.Fatalf("recovered deposit credited wrong balance: %d", got)
+	}
+	confirmPending(t, e)
+	// A duplicate replay of the recovery must be idempotent.
+	if err := e.Deposit("0xBob", AssetFXRP, 3*Scale, "user-deposit"); !errors.Is(err, ErrDuplicate) {
+		t.Fatalf("replayed recovery must be idempotent, got %v", err)
+	}
+}
+
 func TestWithdrawalDebitsOnlyAvailableBalance(t *testing.T) {
 	e, _, _ := newTestEngine(t)
 	if err := e.Deposit("0xAlice", AssetUSDT0, 5*Scale, "deposit-withdraw"); err != nil {

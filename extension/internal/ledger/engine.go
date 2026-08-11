@@ -20,6 +20,17 @@ var (
 	ErrAnchorPending         = errors.New("previous confidential mutation is awaiting on-chain anchor")
 )
 
+// defaultAnchorWaitTimeout bounds how long a new confidential mutation waits for a
+// prior pending anchor to clear before returning ErrAnchorPending. It runs inside the
+// extension's POST /action handler, which tee-node aborts after a hard 2s
+// ProxyTimeout, so it must stay well under 2s: a pending anchor then surfaces as a
+// recoverable error inside the window (engaging the relayer's RECOVER_ANCHOR/
+// RECOVER_DEPOSIT path) instead of the loopback being cut mid-wait, which strands the
+// deposit uncredited. A relayer-driven anchor confirmation takes several on-chain
+// seconds and can never land inside one /action window anyway, so a longer wait buys
+// nothing. Tests override the Engine field directly.
+const defaultAnchorWaitTimeout = 1200 * time.Millisecond
+
 type Engine struct {
 	mu                sync.RWMutex
 	store             *Store
@@ -39,11 +50,14 @@ func NewEngine(store *Store) (*Engine, error) {
 		close(anchorCleared)
 	}
 	return &Engine{
-		store:             store,
-		state:             state,
-		clock:             time.Now,
-		anchorCleared:     anchorCleared,
-		anchorWaitTimeout: 20 * time.Second,
+		store:         store,
+		state:         state,
+		clock:         time.Now,
+		anchorCleared: anchorCleared,
+		// See defaultAnchorWaitTimeout: the wait must stay under tee-node's 2s /action
+		// ProxyTimeout so a pending anchor returns ErrAnchorPending inside the window
+		// and the relayer's recovery can engage. Tests override this field directly.
+		anchorWaitTimeout: defaultAnchorWaitTimeout,
 	}, nil
 }
 
