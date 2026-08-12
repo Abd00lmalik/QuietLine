@@ -55,11 +55,8 @@
 .ql-preloader__glyph {
   width: 1.5em;
   height: 1.5em;
-  display: grid;
-  place-items: center;
-  background: var(--ink);
-  color: #fff;
-  font-family: "Fira Code", monospace;
+  display: block;
+  object-fit: cover;
   border-radius: 6px;
   animation: ql-glyph-in 620ms var(--ql-ease) both;
 }
@@ -145,13 +142,9 @@
 .ql-brand__mark {
   width: 30px;
   height: 30px;
-  display: grid;
-  place-items: center;
   border-radius: 5px;
-  background: var(--ink);
-  color: #fff;
-  font-family: "Fira Code", monospace;
-  font-size: 15px;
+  display: block;
+  object-fit: cover;
 }
 
 .ql-nav__links {
@@ -1216,7 +1209,6 @@
 .ql-footer a { min-height: 44px; display: inline-flex; align-items: center; }
 .ql-footer a:hover { color: #fff; }
 .ql-footer .ql-brand { color: #fff; }
-.ql-footer .ql-brand__mark { background: #fff; color: var(--ink); }
 
 /* ---- Responsive ----------------------------------------------------------- */
 
