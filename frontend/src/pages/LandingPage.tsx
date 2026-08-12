@@ -16,6 +16,7 @@ import {
 import { POLICY, assetSymbol } from "@quietline/protocol";
 import { AssetBadge, Button, HealthScale, Status, ToastProvider, useToast } from "../components/ui";
 import { getMarket } from "../lib/api";
+import quietlineLogo from "../assets/quietline-logo.png";
 import "./LandingPage.css";
 
 const fxrp = "FXRP";
@@ -83,7 +84,7 @@ function Preloader() {
       aria-hidden="true"
     >
       <div className="ql-preloader__mark">
-        <span className="ql-preloader__glyph">Q</span>
+        <img className="ql-preloader__glyph" src={quietlineLogo} alt="" aria-hidden="true" />
         <span className="ql-preloader__word">Quietline</span>
       </div>
       <span className="ql-preloader__bar" />
@@ -629,7 +630,7 @@ function LandingPageContent() {
       <div className="ql">
         <header ref={navRef} className={`ql-nav${pinned ? " ql-nav--pinned" : ""}`}>
           <a className="ql-brand" href="#main-content" aria-label="Quietline home">
-            <span className="ql-brand__mark">Q</span>
+            <img className="ql-brand__mark" src={quietlineLogo} alt="" aria-hidden="true" />
             <span>Quietline</span>
           </a>
           <nav className={`ql-nav__links${menuOpen ? " ql-nav__links--open" : ""}`} aria-label="Sections">
@@ -811,7 +812,7 @@ function LandingPageContent() {
 
         <footer ref={footerRef} className="ql-footer">
           <div className="ql-footer__col">
-            <span className="ql-brand"><span className="ql-brand__mark">Q</span>Quietline</span>
+            <span className="ql-brand"><img className="ql-brand__mark" src={quietlineLogo} alt="" aria-hidden="true" />Quietline</span>
             <p>Private credit, settled on Flare.</p>
           </div>
           <div className="ql-footer__col">
