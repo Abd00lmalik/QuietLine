@@ -11,6 +11,7 @@ typechain-types/
 .env.local
 fcc/.env.coston2
 fcc/.env.coston2-v2
+fcc/.secrets/
 frontend/.env.production
 relayer/.env
 relayer/.env.v2
