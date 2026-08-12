@@ -631,7 +631,6 @@ function LandingPageContent() {
         <header ref={navRef} className={`ql-nav${pinned ? " ql-nav--pinned" : ""}`}>
           <a className="ql-brand" href="#main-content" aria-label="Quietline home">
             <img className="ql-brand__mark" src={quietlineLogo} alt="" aria-hidden="true" />
-            <span>Quietline</span>
           </a>
           <nav className={`ql-nav__links${menuOpen ? " ql-nav__links--open" : ""}`} aria-label="Sections">
             <a href="#product" onClick={() => setMenuOpen(false)}>Product</a>
@@ -658,7 +657,9 @@ function LandingPageContent() {
             <div className="ql-hero__grid" aria-hidden="true" />
             <div className="ql-hero__copy">
               <span className="ql-eyebrow"><span className="ql-pulse" /> Private credit on Flare</span>
-              <h1>Quietline<span className="ql-thin">.</span></h1>
+              <h1 className="ql-hero__wordmark">
+                <span className="ql-wm-quiet">QUIET</span><span className="ql-wm-line">LINE</span>
+              </h1>
               <p className="ql-hero__tagline">Private credit, settled on Flare.</p>
               <p className="ql-hero__body">
                 Borrow {usdt0Symbol} against your {fxrpSymbol}. Your balances and the terms you take
