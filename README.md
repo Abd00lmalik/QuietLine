@@ -17,29 +17,132 @@ User deposits certified FXRP and borrows certified USD₮0 against private lende
 - Extension ID: `66008`
 - RPC: https://coston2-api.flare.network/ext/C/rpc (Chain ID 114)
 
-## Architecture
+## How Quietline Works
 
-```
-Browser          Fastify Relayer       FCC Workload          Coston2
-Wallet           (SQLite jobs)         (Encrypted BoltDB)    QuietVault
-  |                    |                      |                  |
-  | EIP-712 + ECIES    | Durable              | TEE-signed       |
-  | signature + ephemeral  orchestration    root snapshot     Token
-  | response key           Indexer trigger     Settlement relay  custody
-  |                        Settlement submit  Direct actions    Payout
-  v                        v                  v                 v
-User initiates -> Relayer queues -> FCC processes -> QuietVault executes
-                  job + retries     mutations       + anchor confirms
+Quietline connects the user's wallet, the Coston2 blockchain, the relayer, and Flare Confidential Compute. Public blockchain transactions handle assets and settlement, while sensitive credit state is processed inside the confidential compute environment.
 
-State settlement cycle (one at a time):
-1. Relayer indexes QuietVault event requestId
-2. Relayer submits encrypted action to FCC
-3. FCC processes privately, creates pending anchor (new state root)
-4. Relayer retrieves TEE-signed settlement
-5. Relayer calls QuietVault.executeSettlement(Settlement, signature)
-6. Relayer confirms settlement hash back to FCC
-7. FCC anchors the state root; next mutation becomes possible
+```mermaid
+graph TD
+    U["User Wallet"] --> F["Quietline Frontend"]
+    F --> R["Relayer"]
+    R --> V["QuietVault"]
+    R --> X["Flare Confidential Compute"]
+    X --> V
+    V --> C["Coston2"]
+    C --> D["Flare Data Providers"]
+
+    classDef ours fill:#e62046,stroke:#151a18,color:#ffffff,font-weight:bold;
+    classDef infra fill:#151a18,stroke:#e62046,color:#ffffff;
+    classDef public fill:#ffffff,stroke:#151a18,color:#151a18;
+
+    class F,V ours;
+    class R,X infra;
+    class U,C,D public;
 ```
+
+### Deposit Flow
+
+When a user deposits collateral, the transaction is recorded on Coston2 while the resulting credit state is processed by the confidential compute layer.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Quietline
+    participant Wallet as Wallet
+    participant Vault as QuietVault
+    participant Relayer as Relayer
+    participant FCC as Flare Confidential Compute
+
+    User->>UI: Connect wallet
+    UI->>Wallet: Approve collateral
+    Wallet->>Vault: Deposit collateral
+    Vault->>Relayer: Emit state event
+    Relayer->>FCC: Process confidential state
+    FCC-->>Relayer: Signed state update
+    Relayer->>Vault: Submit settlement
+    Vault-->>User: Updated position
+```
+
+### Borrowing Flow
+
+```mermaid
+flowchart LR
+    A["FXRP collateral"] --> B["QuietVault"]
+    B --> C["Confidential credit state"]
+    C --> D["FCC evaluates position"]
+    D --> E["Private borrowing capacity"]
+    E --> F["Borrow USD₮0"]
+
+    classDef ours fill:#e62046,stroke:#151a18,color:#ffffff,font-weight:bold;
+    classDef private fill:#151a18,stroke:#e62046,color:#ffffff;
+    classDef public fill:#ffffff,stroke:#151a18,color:#151a18;
+
+    class A,F ours;
+    class C,D,E private;
+    class B public;
+```
+
+### Public and Confidential Data
+
+Quietline does not try to hide the entire blockchain transaction. Assets and settlement remain on-chain, while sensitive credit information is handled inside Flare Confidential Compute.
+
+```mermaid
+graph TD
+    A["Quietline"] --> P["Public on Coston2"]
+    A --> Q["Confidential in FCC"]
+
+    P --> P1["Wallet interactions"]
+    P --> P2["Collateral transfers"]
+    P --> P3["Contract state"]
+    P --> P4["Settlement"]
+    
+    Q --> Q1["Credit position"]
+    Q --> Q2["Borrowing capacity"]
+    Q --> Q3["Private accounting state"]
+
+    classDef ours fill:#e62046,stroke:#151a18,color:#ffffff,font-weight:bold;
+    classDef public fill:#ffffff,stroke:#151a18,color:#151a18;
+    classDef private fill:#151a18,stroke:#e62046,color:#ffffff;
+
+    class A ours;
+    class P,P1,P2,P3,P4 public;
+    class Q,Q1,Q2,Q3 private;
+```
+
+### From Collateral to Settlement
+
+```mermaid
+flowchart LR
+    A["Deposit FXRP"] --> B["QuietVault"]
+    B --> C["Relayer"]
+    C --> D["Flare Confidential Compute"]
+    D --> E["TEE-signed state"]
+    E --> F["Coston2 settlement"]
+    F --> G["Private credit position"]
+    G --> H["Borrow USD₮0"]
+    H --> I["Repay"]
+    I --> J["Withdraw collateral"]
+
+    classDef ours fill:#e62046,stroke:#151a18,color:#ffffff,font-weight:bold;
+    classDef infra fill:#151a18,stroke:#e62046,color:#ffffff;
+    classDef chain fill:#ffffff,stroke:#151a18,color:#151a18;
+
+    class A,G,H,I,J ours;
+    class C,D,E infra;
+    class B,F chain;
+```
+
+### Core Components
+
+| Component | Role |
+|---|---|
+| **Frontend** | Wallet connection and user interface |
+| **QuietVault** | Holds collateral, manages credit actions and settlement |
+| **Relayer** | Handles authentication, indexing and settlement |
+| **Flare Confidential Compute** | Processes confidential credit state |
+| **TEE** | Signs valid confidential state transitions |
+| **Coston2** | Public settlement and asset layer |
+| **Flare Data Providers** | Provide external data used by the confidential computation |
 
 ## Components
 
