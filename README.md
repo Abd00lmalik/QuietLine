@@ -177,36 +177,6 @@ Operational:
 
 See [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) for complete list.
 
-## Development
-
-Prerequisites: Node.js 22.x, pnpm 10.33.2, Go 1.25.1, Docker with BuildKit.
-
-```bash
-corepack pnpm install
-corepack pnpm typecheck
-corepack pnpm test
-cd extension
-go test ./...
-go vet ./...
-```
-
-Local unit tests use isolated contract mocks. They do not run against FCC, relayer, or Coston2.
-
-## Frontend Build and Deployment
-
-The monorepo includes a root `vercel.json`. Import into Vercel with root directory set to repository root (not `frontend`).
-
-Build outputs `frontend/dist` and serves browser routes like `/app/borrow` to the Vite entry point.
-
-Environment variables (Production, Preview, Development):
-
-```
-VITE_RELAYER_URL=https://YOUR-PUBLIC-RELAYER-HTTPS-ORIGIN
-VITE_FCC_INSTRUCTION_FEE_WEI=1000000000000
-```
-
-The relayer must set `FRONTEND_ORIGIN` in its CORS policy to allow requests from the Vercel origin.
-
 ## Coston2 Deployment
 
 A complete deployment requires:
@@ -241,9 +211,7 @@ The deployment uses the official Coston2 simulated-TEE judging configuration. Do
 - [Deployment (Coston2)](docs/DEPLOYMENT_COSTON2.md) - step-by-step deployment and judging setup
 - [Operations](docs/OPERATIONS.md) - monitoring, debugging, troubleshooting
 - [Live Testnet Runbook](docs/LIVE_TESTNET_RUNBOOK.md) - operational procedures
-- [Judge Guide](docs/JUDGE_GUIDE.md) - evaluation criteria and key features to verify
 - [Known Limitations](docs/KNOWN_LIMITATIONS.md) - scope, privacy, operational constraints
-- [Demo Script](docs/DEMO_SCRIPT.md) - five-minute walkthrough
 
 ## Repository Structure
 
