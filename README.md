@@ -262,14 +262,6 @@ Routes:
 - `/app/borrow` - borrow creation with quote and acceptance
 - `/app/repay` - repayment interface (full close only in this release)
 
-## Fixed Coston2 Addresses
-
-- FXRP: `0x0b6A3645c240605887a5532109323A3E12273dc7`
-- USD₮0: `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F`
-- FTSOv2: `0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d`
-- FlareTeeManager: `0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`
-- XRP/USD Feed ID: `0x015852502f55534400000000000000000000000000`
-
 ## Security and Privacy
 
 ### Private (Inside FCC)
@@ -316,33 +308,6 @@ Operational:
 - Unaudited
 
 See [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) for complete list.
-
-## Coston2 Deployment
-
-A complete deployment requires:
-
-- Funded Coston2 deployer and relayer wallets
-- Public HTTPS hostname for FCC proxy (stable, not quick-tunnel)
-- Coston2 indexer database credentials
-- Persistent x86-64 Docker host
-- Node.js and Go tooling
-
-Steps (see [DEPLOYMENT_COSTON2.md](docs/DEPLOYMENT_COSTON2.md) for full runbook):
-
-1. Install dependencies and build images: `corepack pnpm install --frozen-lockfile && corepack pnpm image:all && corepack pnpm check`
-2. Generate private configuration: `corepack pnpm coston2:prepare`
-3. Set deployer private key in `.env` and relayer key in `relayer/.env`
-4. Deploy contracts: `corepack pnpm --filter @quietline/contracts deploy:coston2`
-5. Register extension: `corepack pnpm coston2:register-extension`
-6. Launch FCC workload: `docker compose -f fcc/docker-compose.coston2.yaml up -d`
-7. Expose proxy via stable HTTPS hostname
-8. Register TEE machine: `corepack pnpm coston2:register-machine`
-9. Configure contract with TEE signer: `corepack pnpm --filter @quietline/contracts configure:coston2`
-10. Grant relayer operator role: `corepack pnpm --filter @quietline/contracts configure-operator:coston2`
-11. Verify deployment: `corepack pnpm --filter @quietline/contracts verify:coston2`
-12. Start relayer, fund backstop, deploy frontend
-
-The deployment uses the official Coston2 simulated-TEE judging configuration. Do not open to judges until deployment gates pass. See [DEPLOYMENT_COSTON2.md](docs/DEPLOYMENT_COSTON2.md) for gates.
 
 ## Documentation
 
