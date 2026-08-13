@@ -1,6 +1,6 @@
 # Quietline
 
-Private credit market on Flare Coston2 testnet.
+Quietline is a private credit dApp on Flare Coston2 that lets users borrow USD₮0 against FXRP collateral while keeping sensitive credit-position data confidential.
 
 Quietline enables borrowing against collateral while keeping loan terms, collateral health, and lender allocations confidential. Deposits, withdrawals, and transaction timing remain public on chain. The confidential ledger runs in a Flare Confidential Compute (FCC) extension, deterministically settled by TEE signatures on Coston2 QuietVault.
 
