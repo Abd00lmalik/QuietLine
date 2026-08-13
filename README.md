@@ -144,6 +144,43 @@ flowchart LR
 | **Coston2** | Public settlement and asset layer |
 | **Flare Data Providers** | Provide external data used by the confidential computation |
 
+## Coston2 Testnet Deployment
+
+Quietline is deployed on the **Flare Coston2 testnet**.
+
+| Contract / Asset | Address | Purpose |
+|---|---|---|
+| **QuietVault** | `0x1C53d0188bA554A23242A2822daBaB802698D511` | Main Quietline vault for collateral, borrowing, repayments and settlements |
+| **QuietPolicy** | `0x28E7965D7b1c4d1f7CB5837dAd691123dec72694` | Protocol rules, risk parameters and access control |
+| **FlareTeeManager** | `0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE` | Flare Confidential Compute TEE registration and machine management |
+| **Certified FXRP** | `0x0b6A3645c240605887a5532109323A3E12273dc7` | FXRP collateral used by borrowers |
+| **Certified USD₮0** | `0xC1A5B41512496B80903D1f32d6dEa3a73212E71F` | USD₮0 used for borrowing and repayment |
+| **FTSOv2** | `0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d` | XRP/USD price feed used for collateral valuation |
+
+**Network:** Flare Coston2  
+**Chain ID:** `114`  
+**RPC:** `https://coston2-api.flare.network/ext/C/rpc`
+
+### Confidential Compute
+
+Quietline uses Flare Confidential Compute through the registered extension:
+
+- **Extension ID:** `66008`
+- **TEE Manager:** `0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`
+
+The confidential workload maintains the private credit state and produces signed state updates that are settled through `QuietVault`.
+
+### Verify the Deployment
+
+You can verify the contracts directly on the Coston2 block explorer:
+
+- [QuietVault](https://coston2-explorer.flare.network/address/0x1C53d0188bA554A23242A2822daBaB802698D511)
+- [QuietPolicy](https://coston2-explorer.flare.network/address/0x28E7965D7b1c4d1f7CB5837dAd691123dec72694)
+- [FlareTeeManager](https://coston2-explorer.flare.network/address/0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE)
+- [Certified FXRP](https://coston2-explorer.flare.network/address/0x0b6A3645c240605887a5532109323A3E12273dc7)
+- [Certified USD₮0](https://coston2-explorer.flare.network/address/0xC1A5B41512496B80903D1f32d6dEa3a73212E71F)
+- [FTSOv2](https://coston2-explorer.flare.network/address/0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d)
+
 ## Components
 
 ### QuietVault (Solidity)
