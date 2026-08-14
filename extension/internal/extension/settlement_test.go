@@ -50,7 +50,7 @@ func TestRecoverableCheckpointKinds(t *testing.T) {
 			t.Fatalf("%s should be recoverable as a checkpoint", kind)
 		}
 	}
-	for _, kind := range []string{config.OPBorrowAccept, config.OPWithdrawRequest} {
+	for _, kind := range []string{config.OPBorrowAccept, config.OPWithdrawRequest, config.OPWithdrawFromMandate} {
 		if isRecoverableCheckpoint(kind) {
 			t.Fatalf("%s must not be recoverable without fund-movement details", kind)
 		}

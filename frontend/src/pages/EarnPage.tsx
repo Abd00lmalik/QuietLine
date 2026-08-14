@@ -11,7 +11,7 @@ import {
   Status,
   useToast,
 } from "../components/ui";
-import { usePrivateActions, useVaultActions } from "../hooks/usePrivateActions";
+import { usePrivateActions } from "../hooks/usePrivateActions";
 import { earnMetrics } from "../lib/earnMetrics";
 import type { PrivateMandate } from "../lib/privateTypes";
 import { useQuietline } from "../store/useQuietline";
@@ -104,7 +104,7 @@ function MandateWithdrawModal({ mandate, onClose }: { mandate: PrivateMandate | 
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const address = useQuietline((state) => state.address);
-  const { withdraw } = useVaultActions();
+  const { withdrawFromMandate } = usePrivateActions();
   const { push } = useToast();
   const open = mandate !== null;
   const available = mandate ? mandate.available / 1_000_000 : 0;
@@ -124,7 +124,14 @@ function MandateWithdrawModal({ mandate, onClose }: { mandate: PrivateMandate | 
     }
     setLoading(true);
     try {
-      await withdraw("USDT0", numeric, address);
+      // Mandate-scoped withdrawal: the FCC debits exactly this mandate's
+      // available-to-lend (never the private unallocated balance) and pays out
+      // to the connected wallet via the UserWithdrawal settlement.
+      await withdrawFromMandate({
+        mandateId: mandate.id,
+        amount: numeric,
+        destination: address,
+      });
       push({
         tone: "success",
         title: "Lender liquidity withdrawn",

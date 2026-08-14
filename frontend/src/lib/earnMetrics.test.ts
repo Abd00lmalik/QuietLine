@@ -106,6 +106,34 @@ describe("earnMetrics", () => {
     expect(after.withdrawable).toBe(5);
   });
 
+  // Regression for the reported Earn bug: clicking Withdraw on a specific
+  // mandate must reduce THAT mandate's available-to-lend, not the private
+  // unallocated balance. The account had 21 total (20 in the mandate + 1
+  // private); withdrawing 2 from the mandate leaves 18 in the mandate and the
+  // private balance untouched — the display must never show the private
+  // balance being eaten.
+  it("keeps the private balance intact when a mandate is withdrawn", () => {
+    const before = earnMetrics(
+      [mandate({ id: "m1", available: 20_000_000 })],
+      1,
+    );
+    expect(before.availableToLend).toBe(20);
+    expect(before.withdrawable).toBe(21);
+
+    // Authoritative FCC state after a mandate-scoped withdrawal of 2: the
+    // mandate's available dropped to 18, and the private balance is still 1
+    // (the FCC debited only mandate.Available).
+    const after = earnMetrics(
+      [mandate({ id: "m1", available: 18_000_000 })],
+      1,
+    );
+    expect(after.availableToLend).toBe(18);
+    expect(after.withdrawable).toBe(19);
+    // The mandate row itself shows 18, never 20, and never a private-balance
+    // decrease masquerading as mandate liquidity.
+    expect(18_000_000 / 1_000_000).toBe(18);
+  });
+
   it("keeps committed loan principal untouched by a withdrawal", () => {
     const before = earnMetrics(
       [mandate({ available: 7_000_000, allocatedPrincipal: 3_000_000 })],

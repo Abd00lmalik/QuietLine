@@ -59,6 +59,7 @@ func TestRequiresCurrentNonce(t *testing.T) {
 		config.OPCancelMandate,
 		config.OPApplyRepayment,
 		config.OPBorrowAccept,
+		config.OPWithdrawFromMandate,
 	}
 	for _, action := range mutations {
 		if !requiresCurrentNonce(action) {

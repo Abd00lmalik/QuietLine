@@ -31,6 +31,11 @@ type SetMandatePayload struct {
 type CancelMandatePayload struct {
 	MandateID string `json:"mandateId"`
 }
+type WithdrawFromMandatePayload struct {
+	MandateID   string         `json:"mandateId"`
+	Amount      uint64         `json:"amount"`
+	Destination common.Address `json:"destination"`
+}
 type QuotePayload = ledger.QuoteRequest
 type BorrowAcceptPayload struct {
 	Quote  ledger.Quote `json:"quote"`

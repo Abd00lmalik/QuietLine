@@ -790,6 +790,49 @@ func (e *Engine) Withdraw(owner, asset string, amount uint64, operationID string
 	})
 }
 
+// WithdrawFromMandate debits unallocated liquidity from one specific mandate
+// only. Unlike Withdraw — which drains the account's private available balance
+// first and only then falls back to mandate liquidity — this is the mandate-
+// scoped path used by the Earn page's per-mandate withdrawal button: the money
+// leaves exactly the mandate the user picked, never the private balance, never
+// other mandates, and never committed principal. Reserved mirrors the debit so
+// account-level conservation is preserved, and an emptied mandate stops
+// matching, matching Withdraw's cleanup.
+func (e *Engine) WithdrawFromMandate(owner, mandateID string, amount uint64, operationID string, expectedNonce uint64) error {
+	if amount == 0 {
+		return errors.New("invalid withdrawal")
+	}
+	return e.mutate("WITHDRAW_FROM_MANDATE", operationID, func(s *State) error {
+		if s.Processed[operationID] {
+			return ErrDuplicate
+		}
+		m := s.Mandates[mandateID]
+		if m == nil || m.Lender != strings.ToLower(owner) || !m.Active {
+			return errors.New("mandate unavailable")
+		}
+		a := account(s, owner)
+		if err := consumeNonce(a, expectedNonce); err != nil {
+			return err
+		}
+		if m.Available < amount {
+			return ErrInsufficientBalance
+		}
+		bal := a.Balances[AssetUSDT0]
+		bal.Reserved -= amount
+		m.Available -= amount
+		if m.Available == 0 && m.AllocatedPrincipal == 0 {
+			m.Active = false
+		}
+		a.Balances[AssetUSDT0] = bal
+		s.Processed[operationID] = true
+		s.Activities = append(s.Activities, Activity{
+			ID: operationID, Account: a.Owner, Kind: "withdrawal",
+			Asset: AssetUSDT0, Amount: amount, CreatedAt: nowUnix(e.clock()),
+		})
+		return nil
+	})
+}
+
 // mandatesByCreatedAt returns the owner's mandates in deterministic withdrawal
 // order (oldest first, then by id) so the per-mandate split is reproducible.
 func mandatesByCreatedAt(s *State, owner string) []*Mandate {

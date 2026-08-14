@@ -152,6 +152,32 @@ func (e *Extension) handleSignedDirect(action teetypes.Action, df *instruction.D
 		if err == nil {
 			err = e.engine.CancelMandate(req.Sender.Hex(), p.MandateID, req.Nonce)
 		}
+	case config.OPWithdrawFromMandate:
+		var p quiettypes.WithdrawFromMandatePayload
+		err = json.Unmarshal(req.Payload, &p)
+		// Same vault-liquidity pre-check as the on-chain WITHDRAW_REQUEST path:
+		// refuse before the engine mutation so an unpayable mandate withdrawal is
+		// never anchored (WITHDRAW_FROM_MANDATE is intentionally not
+		// checkpoint-recoverable). Unknown or stale liquidity fails closed.
+		if err == nil {
+			balance, ok := e.vaultLiquidity(e.cfg.USDT0)
+			switch {
+			case !ok:
+				err = errors.New("vault liquidity is currently unknown; withdrawal refused, retry shortly")
+			case balance < p.Amount:
+				err = fmt.Errorf("insufficient vault liquidity for withdrawal: %d available, %d requested", balance, p.Amount)
+			}
+		}
+		if err == nil {
+			err = e.engine.WithdrawFromMandate(req.Sender.Hex(), p.MandateID, p.Amount, action.Data.ID.Hex(), req.Nonce)
+		}
+		// A mandate withdrawal is a real payout, so it anchors a UserWithdrawal
+		// settlement (type 1) that the relayer executes on-chain, not a
+		// checkpoint (type 2). isMutation excludes this action so the generic
+		// checkpoint below never overwrites the payout anchor.
+		if err == nil {
+			anchor, err = e.anchorSettlement(action.Data.ID, 1, req.Sender, e.cfg.USDT0, p.Amount, p.Destination)
+		}
 	case config.OPQuoteRequest:
 		var p quiettypes.QuotePayload
 		err = json.Unmarshal(req.Payload, &p)

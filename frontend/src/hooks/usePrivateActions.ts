@@ -46,6 +46,7 @@ const directRoutes = {
   ACCOUNT_QUERY: "account",
   SET_MANDATE: "mandate",
   CANCEL_MANDATE: "mandate",
+  WITHDRAW_FROM_MANDATE: "mandate",
   QUOTE_REQUEST: "quote",
   APPLY_REPAYMENT: "repayment",
   STRESS_QUERY: "stress",
@@ -90,6 +91,16 @@ export function usePrivateActions() {
           .then((value) => (teeKeyRef.current = value)),
     ]);
     return { config, teeKey };
+  }, []);
+
+  const assertLiveFcc = useCallback(async () => {
+    const health = await getHealth();
+    if (health.services.fcc !== "ok") {
+      throw new Error(
+        health.detail ??
+          "Confidential compute is not ready. No mandate withdrawal was submitted.",
+      );
+    }
   }, []);
 
   const prepare = useCallback(
@@ -144,7 +155,9 @@ export function usePrivateActions() {
         {
           account: activeAddress,
           ciphertext: prepared.ciphertext,
-          ...(action === "SET_MANDATE" || action === "CANCEL_MANDATE"
+          ...(action === "SET_MANDATE"
+            || action === "CANCEL_MANDATE"
+            || action === "WITHDRAW_FROM_MANDATE"
             ? { command: action }
             : {}),
         },
@@ -309,6 +322,43 @@ export function usePrivateActions() {
     ],
   );
 
+  // Mandate-scoped withdrawal: unlike useVaultActions().withdraw (which goes
+  // through the vault's requestWithdrawal instruction and makes the FCC drain
+  // the private unallocated balance first), this sends a confidential
+  // WITHDRAW_FROM_MANDATE action so the FCC debits exactly the selected
+  // mandate's available-to-lend and pays out via a UserWithdrawal settlement.
+  const withdrawFromMandate = useCallback(
+    (input: { mandateId: string; amount: number; destination: Address }) =>
+      serializeMutation(async () => {
+        await assertLiveFcc();
+        await direct<void>("WITHDRAW_FROM_MANDATE", {
+          mandateId: input.mandateId,
+          amount: toUnits(input.amount),
+          destination: input.destination,
+        });
+        incrementNonce();
+        // The mandate debit is already settled and anchored. If the follow-up
+        // refresh fails, raise the recovery flag instead of reporting the
+        // settled withdrawal as failed.
+        const view = await refreshSettlementView(
+          () => refreshAccount({
+            nonce: useQuietline.getState().accountNonce,
+          }),
+          markSettlementRefreshPending,
+        );
+        await synchronizePublicState();
+        return view;
+      }),
+    [
+      assertLiveFcc,
+      direct,
+      incrementNonce,
+      markSettlementRefreshPending,
+      refreshAccount,
+      synchronizePublicState,
+    ],
+  );
+
   const stress = useCallback(
     (xrpUsd: number) =>
       direct<PrivateStressView>("STRESS_QUERY", {
@@ -328,6 +378,7 @@ export function usePrivateActions() {
     setMandate,
     stress,
     synchronizePublicState,
+    withdrawFromMandate,
   };
 }
 

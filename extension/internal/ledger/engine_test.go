@@ -863,6 +863,115 @@ func TestWithdrawalAcrossMandatesPreservesReservedConservation(t *testing.T) {
 	}
 }
 
+// Regression for the Earn mandate-withdrawal bug: a per-mandate withdrawal must
+// debit exactly the selected mandate's available-to-lend and leave the private
+// unallocated balance (and any other mandate) untouched. The generic Withdraw
+// drains the private balance first, which is what the Earn page reported as
+// "withdrew from my private balance instead of the mandate".
+func TestWithdrawFromMandateDebitsOnlyThatMandate(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	steps := []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-wfm") },
+		// Deposit 10; mandate A takes 4, mandate B takes 3, leaving 3 private.
+		func() error { return e.Deposit("0xLender", AssetUSDT0, 10*Scale, "dep-wfm") },
+		func() error { return e.SetMandate("0xLender", "mandate-wfm-a", 4*Scale, 750, 7, 4*Scale, 0) },
+		func() error { return e.SetMandate("0xLender", "mandate-wfm-b", 3*Scale, 800, 7, 3*Scale, 1) },
+	}
+	for _, step := range steps {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	state := e.State()
+	if got := state.Accounts["0xlender"].Balances[AssetUSDT0]; got.Available != 3*Scale || got.Reserved != 7*Scale {
+		t.Fatalf("unexpected pre-withdrawal balance: %+v", got)
+	}
+	// Withdraw 2 from mandate A. The private balance (3) must stay at 3 even
+	// though the generic Withdraw would have drained it first.
+	if err := e.WithdrawFromMandate("0xLender", "mandate-wfm-a", 2*Scale, "withdraw-wfm", 2); err != nil {
+		t.Fatalf("mandate withdrawal: %v", err)
+	}
+	confirmPending(t, e)
+	state = e.State()
+	a := state.Mandates["mandate-wfm-a"]
+	b := state.Mandates["mandate-wfm-b"]
+	if a.Available != 2*Scale || !a.Active {
+		t.Fatalf("mandate A not debited exactly: %+v", a)
+	}
+	if b.Available != 3*Scale || !b.Active {
+		t.Fatalf("unrelated mandate B must be untouched: %+v", b)
+	}
+	bal := state.Accounts["0xlender"].Balances[AssetUSDT0]
+	if bal.Available != 3*Scale || bal.Reserved != 5*Scale {
+		t.Fatalf("private balance must stay intact and reserved must mirror the debit: %+v", bal)
+	}
+	if a.AllocatedPrincipal != 0 || b.AllocatedPrincipal != 0 {
+		t.Fatal("no committed principal exists and none may be created by a withdrawal")
+	}
+}
+
+// Withdrawing the full unallocated amount of a mandate empties and deactivates
+// it, and the account's reserved mirrors the reduction (conservation holds).
+func TestWithdrawFromMandateEmptiesAndDeactivates(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	steps := []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-wfme") },
+		func() error { return e.Deposit("0xLender", AssetUSDT0, 6*Scale, "dep-wfme") },
+		func() error { return e.SetMandate("0xLender", "mandate-wfme", 4*Scale, 750, 7, 4*Scale, 0) },
+	}
+	for _, step := range steps {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	if err := e.WithdrawFromMandate("0xLender", "mandate-wfme", 4*Scale, "withdraw-wfme", 1); err != nil {
+		t.Fatal(err)
+	}
+	confirmPending(t, e)
+	state := e.State()
+	m := state.Mandates["mandate-wfme"]
+	if m.Available != 0 || m.Active {
+		t.Fatalf("emptied mandate must be deactivated: %+v", m)
+	}
+	bal := state.Accounts["0xlender"].Balances[AssetUSDT0]
+	if bal.Reserved != 0 || bal.Available != 2*Scale {
+		t.Fatalf("reserved must mirror emptied mandate: %+v", bal)
+	}
+}
+
+// A mandate withdrawal that exceeds the mandate's available liquidity (or targets
+// an inactive/foreign mandate) must be refused without mutating state.
+func TestWithdrawFromMandateRefusesOverspendAndForeignMandate(t *testing.T) {
+	e, _, now := newTestEngine(t)
+	steps := []func() error{
+		func() error { return e.RiskTick(Price{XRPUSDE6: 600_000, UpdatedAt: now.Unix()}, "price-wfmr") },
+		func() error { return e.Deposit("0xLender", AssetUSDT0, 5*Scale, "dep-wfmr") },
+		func() error { return e.SetMandate("0xLender", "mandate-wfmr", 4*Scale, 750, 7, 4*Scale, 0) },
+		func() error { return e.Deposit("0xOther", AssetUSDT0, 5*Scale, "dep-wfmr-other") },
+	}
+	for _, step := range steps {
+		if err := step(); err != nil {
+			t.Fatal(err)
+		}
+		confirmPending(t, e)
+	}
+	before := e.State()
+	if err := e.WithdrawFromMandate("0xLender", "mandate-wfmr", 5*Scale, "withdraw-wfmr-over", 1); !errors.Is(err, ErrInsufficientBalance) {
+		t.Fatalf("expected insufficient balance for overspend, got %v", err)
+	}
+	assertStateUnchanged(t, before, e.State())
+	if err := e.WithdrawFromMandate("0xOther", "mandate-wfmr", Scale, "withdraw-wfmr-foreign", 0); err == nil {
+		t.Fatal("expected a foreign mandate withdrawal to be refused")
+	}
+	assertStateUnchanged(t, before, e.State())
+	if err := e.WithdrawFromMandate("0xLender", "no-such-mandate", Scale, "withdraw-wfmr-missing", 1); err == nil {
+		t.Fatal("expected a missing mandate withdrawal to be refused")
+	}
+	assertStateUnchanged(t, before, e.State())
+}
+
 // Regression for the reported "three lenders, ~20 USD₮0 supplied, borrower could
 // only access ~2" incident. The point of the reproduction: the 20 is the total
 // mandated (available + committed), matching uses only Mandate.Available, and

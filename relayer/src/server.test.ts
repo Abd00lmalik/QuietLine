@@ -246,3 +246,58 @@ describe("public configuration", () => {
     await app.close();
   });
 });
+
+describe("mandate-scoped withdrawal route", () => {
+  let store: Store;
+
+  beforeEach(() => {
+    process.env.LOG_LEVEL = "silent";
+    store = new Store(":memory:");
+  });
+
+  afterEach(() => {
+    store.close();
+    delete process.env.LOG_LEVEL;
+  });
+
+  it("accepts the WITHDRAW_FROM_MANDATE command on /direct/mandate", async () => {
+    const enqueued: unknown[] = [];
+    const signer = "0x3333333333333333333333333333333333333333";
+    const app = buildServer({
+      config,
+      store,
+      auth: {
+        verify: () => ({ sub: account, exp: Math.floor(Date.now() / 1000) + 3600 }),
+      } as never,
+      fcc: { machineSigner: async () => signer } as never,
+      orchestrator: {
+        enqueueDirect: (address: string, command: string, ciphertext: string) => {
+          enqueued.push({ address, command, ciphertext });
+          return { id: "job-1" };
+        },
+      } as never,
+      chain: {
+        activeTeeSigner: async () => signer,
+        fccMachineState: async () => ({
+          active: [{ teeId: signer, status: 2 }],
+        }),
+      } as never,
+    });
+    const response = await app.inject({
+      method: "POST",
+      url: "/direct/mandate",
+      headers: { authorization: "Bearer session-token" },
+      payload: {
+        account,
+        command: "WITHDRAW_FROM_MANDATE",
+        ciphertext: "0xabcd",
+      },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(enqueued).toEqual([
+      { address: account, command: "WITHDRAW_FROM_MANDATE", ciphertext: "0xabcd" },
+    ]);
+    await app.close();
+  });
+});

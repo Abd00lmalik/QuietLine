@@ -33,7 +33,7 @@ const directCommands: Record<string, string | readonly string[]> = {
   "open-account": "OPEN_ACCOUNT",
   account: "ACCOUNT_QUERY",
   activity: "ACCOUNT_QUERY",
-  mandate: ["SET_MANDATE", "CANCEL_MANDATE"],
+  mandate: ["SET_MANDATE", "CANCEL_MANDATE", "WITHDRAW_FROM_MANDATE"],
   quote: "QUOTE_REQUEST",
   repayment: "APPLY_REPAYMENT",
   stress: "STRESS_QUERY",
