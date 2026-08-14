@@ -277,13 +277,8 @@ summary:focus-visible {
   width: 30px;
   height: 30px;
   border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--ink);
-  color: white;
-  font-family: "Fira Code", monospace;
-  font-size: 15px;
+  display: block;
+  object-fit: cover;
 }
 
 /* Landing */

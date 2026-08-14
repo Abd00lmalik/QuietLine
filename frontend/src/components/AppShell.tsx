@@ -21,6 +21,7 @@ import { COSTON2 } from "@quietline/protocol";
 import { getHealth, getMarket } from "../lib/api";
 import { useQuietline } from "../store/useQuietline";
 import { IconButton, Status, ToastProvider, useToast } from "./ui";
+import quietlineLogo from "../assets/quietline-logo.png";
 
 const nav = [
   { to: "/app", label: "Overview", icon: LayoutDashboard, end: true },
@@ -262,9 +263,12 @@ function AppShellInner() {
       <header className="app-header">
         <div className="app-header__left">
           <NavLink className="wordmark" to="/">
-            <span className="wordmark__mark" aria-hidden="true">
-              Q
-            </span>
+            <img
+              className="wordmark__mark"
+              src={quietlineLogo}
+              alt=""
+              aria-hidden="true"
+            />
             Quietline
           </NavLink>
           <span className="network-badge">Coston2</span>

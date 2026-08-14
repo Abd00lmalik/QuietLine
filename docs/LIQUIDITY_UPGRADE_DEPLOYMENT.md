@@ -187,9 +187,9 @@ sudo docker compose <profile files and env files> up -d extension-tee relayer
 | Re-lend | repay a borrower loan | lender mandate `Available` regains principal; next quote uses it |
 | Committed guard | attempt to withdraw a committed mandate | refused with insufficient-balance/insufficient-liquidity error |
 
-Then run the manual QA flows in `docs/MANUAL_QA_GUIDE.md` against the live
-frontend (deposit → mandate → borrow → repay → withdrawal, plus a partial
-quote with the new eligibility note).
+Then run the manual QA flows against the live frontend (deposit → mandate →
+borrow → repay → withdrawal, plus a partial quote with the new eligibility
+note), covering the Section 6 gates end-to-end.
 
 ---
 
@@ -261,6 +261,6 @@ sudo docker compose <profile files> up -d extension-tee relayer
 - [ ] Host archive + rebuild completes; `config --quiet` passes on the VM
 - [ ] `up -d extension-tee relayer` without machine registration/retirement
 - [ ] All Section 6 gates pass (signer unchanged, health ok, sequence advances)
-- [ ] Manual QA (`docs/MANUAL_QA_GUIDE.md`) passes on `quietline.vercel.app`
+- [ ] Manual QA (Section 6 gates end-to-end) passes on `quietline.vercel.app`
 - [ ] Frontend redeployed and new Earn metrics visible
 - [ ] `docs/LENDER_UPGRADE_NOTICE.md` published

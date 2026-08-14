@@ -16,6 +16,7 @@ import {
 import { POLICY, assetSymbol } from "@quietline/protocol";
 import { AssetBadge, Button, HealthScale, Status, ToastProvider, useToast } from "../components/ui";
 import { getMarket } from "../lib/api";
+import quietlineLogo from "../assets/quietline-logo.png";
 import "./LandingPage.css";
 
 const fxrp = "FXRP";
@@ -83,7 +84,7 @@ function Preloader() {
       aria-hidden="true"
     >
       <div className="ql-preloader__mark">
-        <span className="ql-preloader__glyph">Q</span>
+        <img className="ql-preloader__glyph" src={quietlineLogo} alt="" aria-hidden="true" />
         <span className="ql-preloader__word">Quietline</span>
       </div>
       <span className="ql-preloader__bar" />
@@ -629,8 +630,7 @@ function LandingPageContent() {
       <div className="ql">
         <header ref={navRef} className={`ql-nav${pinned ? " ql-nav--pinned" : ""}`}>
           <a className="ql-brand" href="#main-content" aria-label="Quietline home">
-            <span className="ql-brand__mark">Q</span>
-            <span>Quietline</span>
+            <img className="ql-brand__mark" src={quietlineLogo} alt="" aria-hidden="true" />
           </a>
           <nav className={`ql-nav__links${menuOpen ? " ql-nav__links--open" : ""}`} aria-label="Sections">
             <a href="#product" onClick={() => setMenuOpen(false)}>Product</a>
@@ -657,7 +657,9 @@ function LandingPageContent() {
             <div className="ql-hero__grid" aria-hidden="true" />
             <div className="ql-hero__copy">
               <span className="ql-eyebrow"><span className="ql-pulse" /> Private credit on Flare</span>
-              <h1>Quietline<span className="ql-thin">.</span></h1>
+              <h1 className="ql-hero__wordmark">
+                <span className="ql-wm-quiet">QUIET</span><span className="ql-wm-line">LINE</span>
+              </h1>
               <p className="ql-hero__tagline">Private credit, settled on Flare.</p>
               <p className="ql-hero__body">
                 Borrow {usdt0Symbol} against your {fxrpSymbol}. Your balances and the terms you take
@@ -811,7 +813,7 @@ function LandingPageContent() {
 
         <footer ref={footerRef} className="ql-footer">
           <div className="ql-footer__col">
-            <span className="ql-brand"><span className="ql-brand__mark">Q</span>Quietline</span>
+            <span className="ql-brand"><img className="ql-brand__mark" src={quietlineLogo} alt="" aria-hidden="true" />Quietline</span>
             <p>Private credit, settled on Flare.</p>
           </div>
           <div className="ql-footer__col">

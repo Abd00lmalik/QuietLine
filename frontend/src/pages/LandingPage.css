@@ -5,6 +5,12 @@
  * Depth comes from Quietline's signature hard-offset shadows and 1px borders.
  * All motion is opacity/transform only and is disabled under reduced motion. */
 
+/* Light weight (300) for the hero QUIETLINE wordmark only. LandingPage is a
+ * lazy route, so this rule sits at the top of the landing CSS chunk and the
+ * 300 woff2 is fetched only here — no other page renders Fira Sans 300, so
+ * nothing elsewhere changes. */
+@import url("https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300&display=swap");
+
 .ql {
   --ql-ink: var(--ink);
   --ql-line: var(--border);
@@ -55,11 +61,8 @@
 .ql-preloader__glyph {
   width: 1.5em;
   height: 1.5em;
-  display: grid;
-  place-items: center;
-  background: var(--ink);
-  color: #fff;
-  font-family: "Fira Code", monospace;
+  display: block;
+  object-fit: cover;
   border-radius: 6px;
   animation: ql-glyph-in 620ms var(--ql-ease) both;
 }
@@ -145,13 +148,9 @@
 .ql-brand__mark {
   width: 30px;
   height: 30px;
-  display: grid;
-  place-items: center;
   border-radius: 5px;
-  background: var(--ink);
-  color: #fff;
-  font-family: "Fira Code", monospace;
-  font-size: 15px;
+  display: block;
+  object-fit: cover;
 }
 
 .ql-nav__links {
@@ -259,6 +258,25 @@
 .ql-hero h1 .ql-thin {
   font-weight: 400;
   color: var(--ink-soft);
+}
+
+/* Hero QUIETLINE wordmark (landing page only). All-caps, thin, wide tracking;
+ * QUIET in Flare red, LINE in ink. Sized to keep the original title's presence
+ * while the all-caps lockup stays on one line inside the hero copy column. */
+.ql-hero h1.ql-hero__wordmark {
+  font-weight: 300;
+  font-size: clamp(42px, 5.4vw, 78px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ql-hero__wordmark .ql-wm-quiet {
+  color: var(--flare);
+}
+
+.ql-hero__wordmark .ql-wm-line {
+  color: var(--ink);
 }
 
 .ql-hero__tagline {
@@ -1216,7 +1234,6 @@
 .ql-footer a { min-height: 44px; display: inline-flex; align-items: center; }
 .ql-footer a:hover { color: #fff; }
 .ql-footer .ql-brand { color: #fff; }
-.ql-footer .ql-brand__mark { background: #fff; color: var(--ink); }
 
 /* ---- Responsive ----------------------------------------------------------- */
 
@@ -1288,6 +1305,10 @@
 
 @media (max-width: 420px) {
   .ql-hero h1 { font-size: clamp(46px, 14vw, 58px); }
+  .ql-hero h1.ql-hero__wordmark {
+    font-size: clamp(38px, 12vw, 54px);
+    letter-spacing: 0.09em;
+  }
   .ql-terms { grid-template-columns: 1fr; }
 }
 
