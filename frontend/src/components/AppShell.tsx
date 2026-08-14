@@ -19,6 +19,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAccount, useDisconnect } from "wagmi";
 import { COSTON2 } from "@quietline/protocol";
 import { getHealth, getMarket } from "../lib/api";
+import { usePrivateActions } from "../hooks/usePrivateActions";
 import { useQuietline } from "../store/useQuietline";
 import { IconButton, Status, ToastProvider, useToast } from "./ui";
 import quietlineLogo from "../assets/quietline-logo.png";
@@ -43,6 +44,10 @@ function AppShellInner() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const hasHydrated = useQuietline((state) => state.hasHydrated);
+  const mode = useQuietline((state) => state.mode);
+  const pendingSettlementRefresh = useQuietline(
+    (state) => state.pendingSettlementRefresh,
+  );
   const address = useQuietline((state) => state.address);
   const sessionExpiresAt = useQuietline((state) => state.sessionExpiresAt);
   const position = useQuietline((state) => state.position);
@@ -62,6 +67,45 @@ function AppShellInner() {
   const { disconnectAsync } = useDisconnect();
   const { push } = useToast();
   const notified = useRef(new Set<string>());
+  const reconciledOnLoad = useRef(false);
+  const { refreshAccount } = usePrivateActions();
+  // A confirmed settlement (borrow payout or Earn withdrawal) can leave this
+  // browser's confidential snapshot stale when the follow-up refresh failed.
+  // A page reload restores that stale snapshot from sessionStorage, so reconcile
+  // it once against the authoritative FCC account whenever a live session
+  // rehydrates with the flag raised. hydratePrivateAccount clears the flag on
+  // success; on failure (e.g. a declined signature) the flag stays and the
+  // Overview banner remains until a manual refresh succeeds.
+  useEffect(() => {
+    if (reconciledOnLoad.current) return;
+    if (!hasHydrated || mode !== "live" || !address || !pendingSettlementRefresh) {
+      return;
+    }
+    if (
+      walletAccount.status === "connecting" ||
+      walletAccount.status === "reconnecting"
+    ) {
+      return;
+    }
+    if (
+      !walletAccount.isConnected ||
+      !walletAccount.address ||
+      walletAccount.address.toLowerCase() !== address.toLowerCase()
+    ) {
+      return;
+    }
+    reconciledOnLoad.current = true;
+    void refreshAccount().catch(() => undefined);
+  }, [
+    address,
+    hasHydrated,
+    mode,
+    pendingSettlementRefresh,
+    refreshAccount,
+    walletAccount.address,
+    walletAccount.isConnected,
+    walletAccount.status,
+  ]);
   useEffect(() => {
     let active = true;
     const refreshMarket = async () => {

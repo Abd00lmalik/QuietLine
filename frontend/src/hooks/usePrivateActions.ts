@@ -32,6 +32,7 @@ import type {
   PrivateStressView,
 } from "../lib/privateTypes";
 import { requestIdFromReceipt } from "../lib/receipts";
+import { refreshSettlementView } from "../lib/refreshSettlement";
 import { assertSuccessfulReceipt } from "../lib/transactions";
 import { useQuietline } from "../store/useQuietline";
 import { erc20Abi, quietVaultAbi } from "../web3/abis";
@@ -74,6 +75,9 @@ export function usePrivateActions() {
   const token = useQuietline((state) => state.sessionToken);
   const hydrate = useQuietline((state) => state.hydratePrivateAccount);
   const incrementNonce = useQuietline((state) => state.incrementAccountNonce);
+  const markSettlementRefreshPending = useQuietline(
+    (state) => state.markSettlementRefreshPending,
+  );
   const hydrateMarket = useQuietline((state) => state.hydrateMarket);
   const hydrateRelayerJobs = useQuietline((state) => state.hydrateRelayerJobs);
 
@@ -254,13 +258,25 @@ export function usePrivateActions() {
         perBorrowerCap: toUnits(input.perBorrowerCap),
       });
       incrementNonce();
-      const view = await refreshAccount({
-        nonce: useQuietline.getState().accountNonce,
-      });
+      // The mandate is already active on FCC. If the follow-up refresh fails,
+      // raise the recovery flag instead of reporting the settled activation as
+      // failed.
+      const view = await refreshSettlementView(
+        () => refreshAccount({
+          nonce: useQuietline.getState().accountNonce,
+        }),
+        markSettlementRefreshPending,
+      );
       await synchronizePublicState();
       return view;
     }),
-    [direct, incrementNonce, refreshAccount, synchronizePublicState],
+    [
+      direct,
+      incrementNonce,
+      markSettlementRefreshPending,
+      refreshAccount,
+      synchronizePublicState,
+    ],
   );
 
   const repay = useCallback(
@@ -272,13 +288,25 @@ export function usePrivateActions() {
         operationId: crypto.randomUUID(),
       });
       incrementNonce();
-      const view = await refreshAccount({
-        nonce: useQuietline.getState().accountNonce,
-      });
+      // The repayment is already settled and the loan closed on FCC. If the
+      // follow-up refresh fails, raise the recovery flag instead of reporting
+      // the settled repayment as failed.
+      const view = await refreshSettlementView(
+        () => refreshAccount({
+          nonce: useQuietline.getState().accountNonce,
+        }),
+        markSettlementRefreshPending,
+      );
       await synchronizePublicState();
       return view;
     }),
-    [direct, incrementNonce, refreshAccount, synchronizePublicState],
+    [
+      direct,
+      incrementNonce,
+      markSettlementRefreshPending,
+      refreshAccount,
+      synchronizePublicState,
+    ],
   );
 
   const stress = useCallback(
@@ -397,7 +425,13 @@ export function useVaultActions() {
           `QuietVault custody is confirmed in transaction ${depositHash}, but private credit did not complete: ${messageFor(error)}. Do not deposit again.`,
         );
       }
-      await refreshAccount();
+      // Custody and confidential credit are confirmed on-chain. If the follow-up
+      // refresh fails, raise the recovery flag instead of reporting the settled
+      // deposit as failed.
+      await refreshSettlementView(
+        () => refreshAccount(),
+        markSettlementRefreshPending,
+      );
       await synchronizePublicState(clients.sessionToken);
       addPublicActivity({
         label: `${assetSymbol(asset)} deposit`,
@@ -410,6 +444,7 @@ export function useVaultActions() {
     [
       addPublicActivity,
       assertLiveFcc,
+      markSettlementRefreshPending,
       protocolContext,
       refreshAccount,
       requireClients,
@@ -552,7 +587,13 @@ export function useVaultActions() {
         );
         onStage?.("confirming");
         await waitForChainJob(requestId, clients.sessionToken);
-        await refreshAfterNonceAdvance(refreshAccount);
+        // The payout is already confirmed on-chain. If the follow-up refresh
+        // fails, raise the recovery flag instead of reporting the settled
+        // withdrawal as failed.
+        await refreshSettlementView(
+          () => refreshAfterNonceAdvance(refreshAccount),
+          markSettlementRefreshPending,
+        );
         await synchronizePublicState(clients.sessionToken);
         addPublicActivity({
           label: `${assetSymbol(asset)} withdrawal`,
@@ -566,6 +607,7 @@ export function useVaultActions() {
     [
       addPublicActivity,
       assertLiveFcc,
+      markSettlementRefreshPending,
       protocolContext,
       refreshAccount,
       requireClients,

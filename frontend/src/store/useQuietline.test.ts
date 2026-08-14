@@ -332,4 +332,169 @@ describe("settlement-recovery banner state", () => {
     useQuietline.getState().disconnect();
     expect(useQuietline.getState().pendingSettlementRefresh).toBe(false);
   });
+
+  it("reconciles a stale Earn snapshot to 5 after a 2 USDT₮0 withdrawal settles", () => {
+    // Pre-withdrawal state: one mandate with 7 USDT₮0 unallocated.
+    useQuietline.getState().connectLive(address, "signed-session", Date.now() + 60_000);
+    useQuietline.getState().hydratePrivateAccount({
+      account: {
+        owner: address,
+        nonce: 2,
+        balances: {
+          FXRP: { available: 0, reserved: 0 },
+          USDT0: { available: 0, reserved: 7_000_000 },
+        },
+      },
+      mandates: [
+        {
+          id: "m1",
+          lender: address,
+          available: 7_000_000,
+          minAprBps: 750,
+          termMask: 7,
+          perBorrowerCap: 7_000_000,
+          active: true,
+          createdAt: 1,
+          allocatedPrincipal: 0,
+          interestEarned: 0,
+        },
+      ],
+      activities: [],
+      price: { xrpUsdE6: 600_000, updatedAt: 1_785_528_000 },
+    });
+    expect(useQuietline.getState().privateUsdt0).toBe(0);
+    expect(useQuietline.getState().mandates[0]?.available).toBe(7_000_000);
+
+    // The post-settlement refresh failed, so this browser kept the stale 7 and
+    // the recovery flag was raised.
+    useQuietline.getState().markSettlementRefreshPending();
+
+    // Authoritative FCC ACCOUNT_QUERY after the withdrawal settled: the mandate's
+    // unallocated available dropped to 5 USDT₮0 (5_000_000 base units) and the
+    // reserved balance mirrored the debit. Committed principal stays untouched.
+    useQuietline.getState().hydratePrivateAccount({
+      account: {
+        owner: address,
+        nonce: 3,
+        balances: {
+          FXRP: { available: 0, reserved: 0 },
+          USDT0: { available: 0, reserved: 5_000_000 },
+        },
+      },
+      mandates: [
+        {
+          id: "m1",
+          lender: address,
+          available: 5_000_000,
+          minAprBps: 750,
+          termMask: 7,
+          perBorrowerCap: 7_000_000,
+          active: true,
+          createdAt: 1,
+          allocatedPrincipal: 0,
+          interestEarned: 0,
+        },
+      ],
+      activities: [],
+      price: { xrpUsdE6: 600_000, updatedAt: 1_785_528_000 },
+    });
+
+    const state = useQuietline.getState();
+    expect(state.privateUsdt0).toBe(0);
+    expect(state.mandates[0]?.available).toBe(5_000_000);
+    expect(state.mandates[0]?.allocatedPrincipal).toBe(0);
+    // Earn page derives 5 available (not 7) from these authoritative fields, and
+    // the successful refresh clears the recovery flag.
+    expect(state.pendingSettlementRefresh).toBe(false);
+    expect(state.accountNonce).toBe(3);
+  });
+
+  it("keeps a stale persisted snapshot until the authoritative refresh succeeds", async () => {
+    // Simulate a same-tab reload after a withdrawal whose refresh failed: the
+    // persisted snapshot still shows 7 and the recovery flag is raised.
+    useQuietline.getState().connectLive(address, "signed-session", Date.now() + 60_000);
+    useQuietline.getState().hydratePrivateAccount({
+      account: {
+        owner: address,
+        nonce: 2,
+        balances: {
+          FXRP: { available: 0, reserved: 0 },
+          USDT0: { available: 0, reserved: 7_000_000 },
+        },
+      },
+      mandates: [
+        {
+          id: "m1",
+          lender: address,
+          available: 7_000_000,
+          minAprBps: 750,
+          termMask: 7,
+          perBorrowerCap: 7_000_000,
+          active: true,
+          createdAt: 1,
+          allocatedPrincipal: 0,
+          interestEarned: 0,
+        },
+      ],
+      activities: [],
+      price: { xrpUsdE6: 600_000, updatedAt: 1_785_528_000 },
+    });
+    useQuietline.getState().markSettlementRefreshPending();
+
+    const persisted = sessionStorage.getItem("quietline.private-session");
+    expect(persisted).toBeTruthy();
+
+    useQuietline.setState({
+      mode: "disconnected",
+      sessionToken: undefined,
+      privateUsdt0: 0,
+      mandates: [],
+      pendingSettlementRefresh: false,
+    });
+    sessionStorage.setItem("quietline.private-session", persisted!);
+    await useQuietline.persist.rehydrate();
+
+    // Restored snapshot is the stale 7 and the flag survived the reload, so the
+    // app knows a confidential refresh is owed.
+    expect(useQuietline.getState()).toMatchObject({
+      mode: "live",
+      privateUsdt0: 0,
+      pendingSettlementRefresh: true,
+    });
+    expect(useQuietline.getState().mandates[0]?.available).toBe(7_000_000);
+
+    // The reload reconcile runs an authoritative ACCOUNT_QUERY: once it returns,
+    // the store surfaces 5 and clears the flag — the browser refresh now shows
+    // the settled value instead of restoring the old 7.
+    useQuietline.getState().hydratePrivateAccount({
+      account: {
+        owner: address,
+        nonce: 3,
+        balances: {
+          FXRP: { available: 0, reserved: 0 },
+          USDT0: { available: 0, reserved: 5_000_000 },
+        },
+      },
+      mandates: [
+        {
+          id: "m1",
+          lender: address,
+          available: 5_000_000,
+          minAprBps: 750,
+          termMask: 7,
+          perBorrowerCap: 7_000_000,
+          active: true,
+          createdAt: 1,
+          allocatedPrincipal: 0,
+          interestEarned: 0,
+        },
+      ],
+      activities: [],
+      price: { xrpUsdE6: 600_000, updatedAt: 1_785_528_000 },
+    });
+
+    expect(useQuietline.getState().mandates[0]?.available).toBe(5_000_000);
+    expect(useQuietline.getState().privateUsdt0).toBe(0);
+    expect(useQuietline.getState().pendingSettlementRefresh).toBe(false);
+  });
 });
