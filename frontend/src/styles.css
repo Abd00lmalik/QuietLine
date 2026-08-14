@@ -2020,7 +2020,7 @@ summary:focus-visible {
   flex-wrap: wrap;
 }
 
-.mandate-row .button--quiet {
+.mandate-row .button--secondary {
   min-height: 30px;
   padding: 4px 10px;
   font-size: 12px;

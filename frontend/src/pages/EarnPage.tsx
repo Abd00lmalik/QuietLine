@@ -12,6 +12,7 @@ import {
   useToast,
 } from "../components/ui";
 import { usePrivateActions, useVaultActions } from "../hooks/usePrivateActions";
+import { earnMetrics } from "../lib/earnMetrics";
 import type { PrivateMandate } from "../lib/privateTypes";
 import { useQuietline } from "../store/useQuietline";
 import { assetSymbol } from "@quietline/protocol";
@@ -28,30 +29,16 @@ export function EarnPage() {
   const activeMandates = mandates.filter((mandate) => mandate.active);
   // Liquidity is split straight from the authoritative mandate state. The total
   // supplied is deliberately never used as the lendable figure: only the
-  // uncommitted Mandate.Available is matched by FCC.
-  const totalSupplied = mandates.reduce(
-    (total, mandate) => total + mandate.available + mandate.allocatedPrincipal,
-    0,
-  );
-  const availableToLend = mandates.reduce(
-    (total, mandate) => total + mandate.available,
-    0,
-  );
-  const committedToLoans = mandates.reduce(
-    (total, mandate) => total + mandate.allocatedPrincipal,
-    0,
-  );
-  const withdrawable = available + availableToLend;
-  const weightedAmount = activeMandates.reduce(
-    (total, mandate) => total + mandate.available + mandate.allocatedPrincipal,
-    0,
-  );
-  const weightedApr = activeMandates.reduce(
-    (total, mandate) =>
-      total +
-      mandate.minAprBps * (mandate.available + mandate.allocatedPrincipal),
-    0,
-  );
+  // uncommitted Mandate.Available is matched by FCC. earnMetrics converts the
+  // raw base-unit mandate fields to USD₮0 in one place so the UI can never mix
+  // units (the historical 7_000_000.00 vs 7.00 / 7_000_001.00 bug).
+  const {
+    totalSupplied,
+    availableToLend,
+    committedToLoans,
+    withdrawable,
+    weightedAprPercent: weightedApr,
+  } = earnMetrics(mandates, available);
   if (mode === "disconnected") {
     return (
       <div className="page">
@@ -72,7 +59,7 @@ export function EarnPage() {
         <Metric label="Committed to loans" value={`${committedToLoans.toFixed(2)} ${usdt0Symbol}`} privateValue />
         <Metric label="Withdrawable balance" value={`${withdrawable.toFixed(2)} ${usdt0Symbol}`} privateValue detail="Unallocated mandate + private balance" />
         <Metric label="Interest earned" value={`${earned.toFixed(4)} ${usdt0Symbol}`} privateValue />
-        <Metric label="Weighted lender APR" value={weightedAmount ? `${(weightedApr / weightedAmount / 100).toFixed(2)}%` : "--"} privateValue />
+        <Metric label="Weighted lender APR" value={weightedApr === null ? "--" : `${weightedApr.toFixed(2)}%`} privateValue />
       </section>
       <section className="panel mandate-panel">
         <header className="panel__header"><div><span>Private terms</span><h2>Lending mandates</h2></div><PrivacyLabel scope="private" /><Status tone={activeMandates.length ? "healthy" : "neutral"}>{activeMandates.length ? `${activeMandates.length} active` : "No mandates"}</Status></header>
@@ -85,7 +72,7 @@ export function EarnPage() {
             <div>
               <div className="mandate-row__status">
                 <Status tone="healthy">Active</Status>
-                <Button variant="quiet" className="mandate-row__withdraw" disabled={mandate.available === 0} onClick={() => setWithdrawMandate(mandate)}>Withdraw</Button>
+                <Button variant="secondary" className="mandate-row__withdraw" disabled={mandate.available === 0} onClick={() => setWithdrawMandate(mandate)}>Withdraw</Button>
               </div>
               <span>Mandate status</span>
             </div>
