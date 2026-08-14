@@ -71,6 +71,21 @@ func (e *Extension) handleWithdrawal(action teetypes.Action, df *instruction.Dat
 	if err == nil {
 		asset, err = assetForToken(e.cfg, token)
 	}
+	// Vault-liquidity pre-check, served from the background-refreshed cache (never
+	// a live read on this path). It runs BEFORE the engine mutation so an
+	// unpayable withdrawal is refused without creating a pending anchor: a
+	// settlement that would revert on-chain would otherwise strand the FCC anchor
+	// and block every subsequent mutation (WITHDRAW_REQUEST is intentionally not
+	// checkpoint-recoverable). Unknown or stale liquidity fails closed.
+	if err == nil {
+		balance, ok := e.vaultLiquidity(token)
+		switch {
+		case !ok:
+			err = errors.New("vault liquidity is currently unknown; withdrawal refused, retry shortly")
+		case balance < amount:
+			err = fmt.Errorf("insufficient vault liquidity for withdrawal: %d available, %d requested", balance, amount)
+		}
+	}
 	if err == nil {
 		state := e.engine.State()
 		acct := state.Accounts[lower(sender)]

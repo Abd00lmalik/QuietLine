@@ -131,10 +131,13 @@ function BorrowWorkflow() {
       setQuote(result);
       setStep(2);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       push({
         tone: "error",
         title: "Private quote failed",
-        body: error instanceof Error ? error.message : String(error),
+        body: /no eligible private lender liquidity/i.test(message)
+          ? "No lending mandate currently matches your request. Lender capital may be committed to active loans, capped per borrower, or outside your selected term or maximum APR."
+          : message,
       });
     } finally {
       setComputing(false);
@@ -299,10 +302,16 @@ function BorrowWorkflow() {
             <strong>{quoteAmount.toFixed(2)} {usdt0Symbol}</strong>
             <small>
               {quote?.partial
-                ? `You requested ${requestedQuoteAmount.toFixed(2)} ${usdt0Symbol}. Accepting settles the matched amount.`
+                ? `You requested ${requestedQuoteAmount.toFixed(2)} ${usdt0Symbol}, but only ${quoteAmount.toFixed(2)} is currently eligible to lend. Accepting settles the matched amount.`
                 : "Delivered publicly after settlement"}
             </small>
           </div>
+          {quote?.partial ? (
+            <div className="quote-disclosure partial-liquidity-note">
+              <Sparkles size={16} />
+              <p><strong>Based on currently eligible liquidity.</strong> This quote matches only the uncommitted lending liquidity eligible for your request — not the total amount lenders have supplied. Lenders' capital may be unavailable because it is committed to active loans, limited by per-borrower caps, or outside your selected term or maximum APR. Lender identities and balances stay private.</p>
+            </div>
+          ) : null}
           <HealthScale value={quoteLtv} warning={55} liquidation={65} label="Quoted LTV" />
           <div className="quote-grid">
             <div><span>Collateral allocated</span><strong>{quoteCollateral.toFixed(2)} {fxrpSymbol}</strong></div>

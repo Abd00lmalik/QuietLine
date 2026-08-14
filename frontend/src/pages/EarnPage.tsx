@@ -11,7 +11,8 @@ import {
   Status,
   useToast,
 } from "../components/ui";
-import { usePrivateActions } from "../hooks/usePrivateActions";
+import { usePrivateActions, useVaultActions } from "../hooks/usePrivateActions";
+import type { PrivateMandate } from "../lib/privateTypes";
 import { useQuietline } from "../store/useQuietline";
 import { assetSymbol } from "@quietline/protocol";
 
@@ -20,11 +21,27 @@ const usdt0Symbol = assetSymbol("USDT0");
 export function EarnPage() {
   const mode = useQuietline((state) => state.mode);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [withdrawMandate, setWithdrawMandate] = useState<PrivateMandate | null>(null);
   const available = useQuietline((state) => state.privateUsdt0);
-  const allocated = useQuietline((state) => state.lenderAllocated);
   const earned = useQuietline((state) => state.lenderEarned);
   const mandates = useQuietline((state) => state.mandates);
   const activeMandates = mandates.filter((mandate) => mandate.active);
+  // Liquidity is split straight from the authoritative mandate state. The total
+  // supplied is deliberately never used as the lendable figure: only the
+  // uncommitted Mandate.Available is matched by FCC.
+  const totalSupplied = mandates.reduce(
+    (total, mandate) => total + mandate.available + mandate.allocatedPrincipal,
+    0,
+  );
+  const availableToLend = mandates.reduce(
+    (total, mandate) => total + mandate.available,
+    0,
+  );
+  const committedToLoans = mandates.reduce(
+    (total, mandate) => total + mandate.allocatedPrincipal,
+    0,
+  );
+  const withdrawable = available + availableToLend;
   const weightedAmount = activeMandates.reduce(
     (total, mandate) => total + mandate.available + mandate.allocatedPrincipal,
     0,
@@ -50,8 +67,10 @@ export function EarnPage() {
         <Button icon={Plus} onClick={() => setEditorOpen(true)}>Provide liquidity</Button>
       </div>
       <section className="metric-band">
-        <Metric label={`Private ${usdt0Symbol} available`} value={`${available.toFixed(2)} ${usdt0Symbol}`} privateValue />
-        <Metric label="Allocated to mandates" value={`${allocated.toFixed(2)} ${usdt0Symbol}`} privateValue />
+        <Metric label="Total supplied" value={`${totalSupplied.toFixed(2)} ${usdt0Symbol}`} privateValue detail="Available + committed" />
+        <Metric label="Available to lend" value={`${availableToLend.toFixed(2)} ${usdt0Symbol}`} privateValue />
+        <Metric label="Committed to loans" value={`${committedToLoans.toFixed(2)} ${usdt0Symbol}`} privateValue />
+        <Metric label="Withdrawable balance" value={`${withdrawable.toFixed(2)} ${usdt0Symbol}`} privateValue detail="Unallocated mandate + private balance" />
         <Metric label="Interest earned" value={`${earned.toFixed(4)} ${usdt0Symbol}`} privateValue />
         <Metric label="Weighted lender APR" value={weightedAmount ? `${(weightedApr / weightedAmount / 100).toFixed(2)}%` : "--"} privateValue />
       </section>
@@ -59,11 +78,17 @@ export function EarnPage() {
         <header className="panel__header"><div><span>Private terms</span><h2>Lending mandates</h2></div><PrivacyLabel scope="private" /><Status tone={activeMandates.length ? "healthy" : "neutral"}>{activeMandates.length ? `${activeMandates.length} active` : "No mandates"}</Status></header>
         {activeMandates.length ? activeMandates.map((mandate) => (
           <div className="mandate-row" key={mandate.id}>
-            <div><AssetBadge asset="USDT0" /><strong>{((mandate.available + mandate.allocatedPrincipal) / 1_000_000).toFixed(2)}</strong><span>Private amount</span></div>
-            <div><strong>{(mandate.allocatedPrincipal / 1_000_000).toFixed(2)} {usdt0Symbol}</strong><span>Currently lent</span></div>
+            <div><AssetBadge asset="USDT0" /><strong>{(mandate.available / 1_000_000).toFixed(2)} {usdt0Symbol}</strong><span>Available to lend</span></div>
+            <div><strong>{(mandate.allocatedPrincipal / 1_000_000).toFixed(2)} {usdt0Symbol}</strong><span>Committed to loans</span></div>
             <div><strong><LockKeyhole size={14} /> {(mandate.minAprBps / 100).toFixed(2)}%</strong><span>Minimum APR</span></div>
             <div><strong>{termsFromMask(mandate.termMask)}</strong><span>Eligible terms</span></div>
-            <div><Status tone="healthy">Active</Status><span>Mandate status</span></div>
+            <div>
+              <div className="mandate-row__status">
+                <Status tone="healthy">Active</Status>
+                <Button variant="quiet" className="mandate-row__withdraw" disabled={mandate.available === 0} onClick={() => setWithdrawMandate(mandate)}>Withdraw</Button>
+              </div>
+              <span>Mandate status</span>
+            </div>
           </div>
         )) : (
           <EmptyState icon={BadgeDollarSign} title="No active lending mandate" body={`Reserve private ${usdt0Symbol} for deterministic matching against eligible borrowers.`} action={<Button onClick={() => setEditorOpen(true)}>Activate a mandate</Button>} />
@@ -74,6 +99,7 @@ export function EarnPage() {
         <div><h2>Liquidity remains in QuietVault.</h2><p>Activating a mandate moves no tokens. FCC reserves your private balance and anchors the new state root on Coston2.</p></div>
       </section>
       <MandateModal open={editorOpen} onClose={() => setEditorOpen(false)} />
+      <MandateWithdrawModal mandate={withdrawMandate} onClose={() => setWithdrawMandate(null)} />
     </div>
   );
 }
@@ -85,6 +111,76 @@ function termsFromMask(mask: number) {
     mask & 4 ? "30" : "",
   ].filter(Boolean);
   return `${terms.join(" / ")} days`;
+}
+
+function MandateWithdrawModal({ mandate, onClose }: { mandate: PrivateMandate | null; onClose: () => void }) {
+  const [amount, setAmount] = useState("");
+  const [loading, setLoading] = useState(false);
+  const address = useQuietline((state) => state.address);
+  const { withdraw } = useVaultActions();
+  const { push } = useToast();
+  const open = mandate !== null;
+  const available = mandate ? mandate.available / 1_000_000 : 0;
+  useEffect(() => {
+    if (open) setAmount(available > 0 ? String(available) : "");
+  }, [open, available]);
+  const submit = async () => {
+    if (!mandate) return;
+    const numeric = Number(amount);
+    if (!Number.isFinite(numeric) || numeric <= 0 || numeric > available) {
+      push({ tone: "error", title: `Withdraw up to your available ${available.toFixed(2)} ${usdt0Symbol}` });
+      return;
+    }
+    if (!address) {
+      push({ tone: "error", title: "Reconnect your wallet before withdrawing" });
+      return;
+    }
+    setLoading(true);
+    try {
+      await withdraw("USDT0", numeric, address);
+      push({
+        tone: "success",
+        title: "Lender liquidity withdrawn",
+        body: `${numeric.toFixed(4)} ${usdt0Symbol} settled to your wallet.`,
+      });
+      onClose();
+    } catch (error) {
+      push({
+        tone: "error",
+        title: "Liquidity withdrawal failed",
+        body: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <Modal open={open} onClose={loading ? () => undefined : onClose} title="Withdraw available liquidity" description="Only unallocated mandate liquidity is withdrawable. Principal committed to active loans stays reserved until repaid.">
+      <div className="modal-metrics">
+        <Metric label="Unallocated available" value={`${available.toFixed(4)} ${usdt0Symbol}`} privateValue />
+        <Metric label="Committed to loans" value={`${mandate ? (mandate.allocatedPrincipal / 1_000_000).toFixed(4) : "0.00"} ${usdt0Symbol}`} privateValue />
+      </div>
+      <label className="field">
+        <span>Amount to withdraw</span>
+        <div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><strong>{usdt0Symbol}</strong></div>
+        <small>{available.toFixed(4)} {usdt0Symbol} withdrawable from this mandate</small>
+      </label>
+      <div className="quick-values">
+        {["25%", "50%", "Max"].map((value) => {
+          const ratio = value === "25%" ? 0.25 : value === "50%" ? 0.5 : 1;
+          return <button key={value} onClick={() => setAmount((available * ratio).toFixed(4))}>{value}</button>;
+        })}
+      </div>
+      <div className="privacy-notice">
+        <LockKeyhole size={17} />
+        <p><strong>Public payout.</strong> Your address, asset, amount, and timing are visible on Coston2. The authorization stays inside FCC.</p>
+      </div>
+      <div className="modal__footer">
+        <Button variant="quiet" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button loading={loading} onClick={() => void submit()}>Withdraw liquidity</Button>
+      </div>
+    </Modal>
+  );
 }
 
 function MandateModal({ open, onClose }: { open: boolean; onClose: () => void }) {

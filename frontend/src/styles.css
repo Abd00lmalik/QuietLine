@@ -1624,6 +1624,17 @@ summary:focus-visible {
   margin: 0;
 }
 
+.partial-liquidity-note {
+  background: var(--amber-soft);
+  color: #754a00;
+  border: 1px solid #f0d9a8;
+}
+
+.partial-liquidity-note svg {
+  flex: none;
+  color: var(--amber);
+}
+
 .form-grid,
 .modal-metrics {
   display: grid;
@@ -1971,7 +1982,7 @@ summary:focus-visible {
 /* Earn, position, activity, settings */
 
 .metric-band {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   margin-bottom: 14px;
 }
 
@@ -2005,6 +2016,19 @@ summary:focus-visible {
 .mandate-row span {
   color: var(--muted);
   font-size: 10px;
+}
+
+.mandate-row__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mandate-row .button--quiet {
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 12px;
 }
 
 .earn-explainer {

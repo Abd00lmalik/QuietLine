@@ -638,19 +638,6 @@ func distributeRepayment(s *State, l *Loan, interest uint64) error {
 		if err != nil {
 			return err
 		}
-		lb.Reserved, err = checkedSub(lb.Reserved, t.Principal)
-		if err != nil {
-			return fmt.Errorf("returning lender reserved principal: %w", err)
-		}
-		returned, err := checkedAdd(t.Principal, lenderInterest)
-		if err != nil {
-			return err
-		}
-		lb.Available, err = checkedAdd(lb.Available, returned)
-		if err != nil {
-			return err
-		}
-		lender.Balances[AssetUSDT0] = lb
 		m := s.Mandates[t.MandateID]
 		if m == nil {
 			return errors.New("loan references missing mandate")
@@ -659,6 +646,33 @@ func distributeRepayment(s *State, l *Loan, interest uint64) error {
 		if err != nil {
 			return fmt.Errorf("decreasing mandate allocation: %w", err)
 		}
+		// Repaid principal becomes lendable again through the same active mandate:
+		// it stays reserved (account.Reserved is unchanged), so it is never idle
+		// and never double-credited. A cancelled mandate returns principal to the
+		// account's available balance instead: the lender opted out of lending, so
+		// freed capital must not silently re-lend.
+		if m.Active {
+			m.Available, err = checkedAdd(m.Available, t.Principal)
+			if err != nil {
+				return fmt.Errorf("restoring mandate liquidity: %w", err)
+			}
+		} else {
+			lb.Reserved, err = checkedSub(lb.Reserved, t.Principal)
+			if err != nil {
+				return fmt.Errorf("returning lender reserved principal: %w", err)
+			}
+			lb.Available, err = checkedAdd(lb.Available, t.Principal)
+			if err != nil {
+				return err
+			}
+		}
+		// Interest is credited only to the lender's withdrawable balance; it is
+		// never folded back into the mandate's lendable amount.
+		lb.Available, err = checkedAdd(lb.Available, lenderInterest)
+		if err != nil {
+			return err
+		}
+		lender.Balances[AssetUSDT0] = lb
 		m.InterestEarned, err = checkedAdd(m.InterestEarned, lenderInterest)
 		if err != nil {
 			return err
@@ -724,10 +738,48 @@ func (e *Engine) Withdraw(owner, asset string, amount uint64, operationID string
 			return err
 		}
 		bal := a.Balances[asset]
-		if bal.Available < amount {
-			return ErrInsufficientBalance
+		remaining := amount
+		if bal.Available >= remaining {
+			bal.Available -= remaining
+			remaining = 0
+		} else {
+			remaining -= bal.Available
+			bal.Available = 0
 		}
-		bal.Available -= amount
+		// Unallocated mandate liquidity is withdrawable principal: it is not
+		// committed to any loan, so taking it back cannot undercollateralize an
+		// active loan. Committed principal (AllocatedPrincipal) is never touched.
+		// FXRP has no mandate mechanism, so any remainder is rejected.
+		if remaining > 0 {
+			if asset != AssetUSDT0 {
+				return ErrInsufficientBalance
+			}
+			for _, m := range mandatesByCreatedAt(s, a.Owner) {
+				if remaining == 0 {
+					break
+				}
+				if !m.Active || m.Available == 0 {
+					continue
+				}
+				take := m.Available
+				if take > remaining {
+					take = remaining
+				}
+				m.Available -= take
+				bal.Reserved -= take
+				remaining -= take
+			}
+			if remaining > 0 {
+				return ErrInsufficientBalance
+			}
+			// Mirror repayment: a mandate with neither available nor committed
+			// liquidity stops matching instead of lingering as an empty "active".
+			for _, m := range mandatesByCreatedAt(s, a.Owner) {
+				if m.Available == 0 && m.AllocatedPrincipal == 0 {
+					m.Active = false
+				}
+			}
+		}
 		a.Balances[asset] = bal
 		s.Processed[operationID] = true
 		s.Activities = append(s.Activities, Activity{
@@ -736,4 +788,23 @@ func (e *Engine) Withdraw(owner, asset string, amount uint64, operationID string
 		})
 		return nil
 	})
+}
+
+// mandatesByCreatedAt returns the owner's mandates in deterministic withdrawal
+// order (oldest first, then by id) so the per-mandate split is reproducible.
+func mandatesByCreatedAt(s *State, owner string) []*Mandate {
+	owner = strings.ToLower(owner)
+	out := make([]*Mandate, 0)
+	for _, m := range s.Mandates {
+		if m.Lender == owner {
+			out = append(out, m)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt != out[j].CreatedAt {
+			return out[i].CreatedAt < out[j].CreatedAt
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
 }

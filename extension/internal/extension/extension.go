@@ -32,6 +32,13 @@ type Extension struct {
 	price     *priceCache
 	priceStop chan struct{}
 	priceDone chan struct{}
+	// liquidity serves the WITHDRAW_REQUEST pre-check from a background-refreshed
+	// cache of the vault's token balances. Unlike price there is deliberately no
+	// live-read fallback: an unknown or stale balance fails the withdrawal closed
+	// rather than putting a Coston2 round-trip on the /action hot path.
+	liquidity     *vaultLiquidityCache
+	liquidityStop chan struct{}
+	liquidityDone chan struct{}
 }
 
 func New(cfg config.Config) (*Extension, error) {
@@ -54,6 +61,10 @@ func New(cfg config.Config) (*Extension, error) {
 	e.priceStop = make(chan struct{})
 	e.priceDone = make(chan struct{})
 	go e.startPriceRefresher(e.priceStop, e.priceDone)
+	e.liquidity = &vaultLiquidityCache{values: map[common.Address]vaultLiquidityValue{}}
+	e.liquidityStop = make(chan struct{})
+	e.liquidityDone = make(chan struct{})
+	go e.startVaultLiquidityRefresher(e.liquidityStop, e.liquidityDone)
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /action", e.actionHandler)
 	mux.HandleFunc("GET /state", e.stateHandler)
@@ -70,6 +81,15 @@ func (e *Extension) Close() error {
 		close(e.priceStop)
 		select {
 		case <-e.priceDone:
+		case <-time.After(config.ShutdownTimeout):
+		}
+	}
+	// Stop the liquidity refresher the same way so it never reads through a closed
+	// chain connection.
+	if e.liquidityStop != nil {
+		close(e.liquidityStop)
+		select {
+		case <-e.liquidityDone:
 		case <-time.After(config.ShutdownTimeout):
 		}
 	}
